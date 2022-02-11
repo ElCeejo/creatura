@@ -1,0 +1,140 @@
+
+Registration
+------------
+
+creatura.register_mob(name, mob definition)
+
+Mob Definition uses almost all entity definition params
+
+{
+	max_health = 10 -- Maximum Health
+	damage = 0 -- Damage dealt by mob
+	speed = 4 -- Maximum Speed
+	tracking_range = 16 -- Maximum range for finding entities/blocks
+	despawn_after = 1500 -- Despawn after being active for this amount of time
+
+	max_fall = 8 -- How far a mob can fall before taking damage (set to 0 to disable fall damage)
+	turn_rate = 7 -- Turn Rate in rad/s
+	bouyancy_multiplier = 1 -- Multiplier for bouyancy effects (set to 0 to disable bouyancy)
+	hydrodynamics_multiplier = 1 -- Multiplier for hydroynamic effects (set to 0 to disable hydrodynamics)
+
+	hitbox = { -- Hitbox params (Uses custom registration to force get_pos() to always return bottom of box)
+		width = 0.5, (total width = width * 2. A width of 0.5 results in a box with a total width of 1)
+		height = 1 (total height of box)
+	}
+
+	animations = {
+		anim = {range = {x = 1, y = 10}, speed = 30, frame_blend = 0.3, loop = true}
+	}
+
+	drops = {
+		{name = (itemstring), min = 1, max = 3, chance = 1},
+	}
+	follow = {
+		"farming:seed_wheat",
+		"farming:seed_cotton"
+	}
+
+	utility_stack = {
+		-- Every second, all utilities in the stack are evaluated
+		-- Whichever utilitiy's get_score function returns the highest number will be executed
+		-- If multiple utilities have the same score, the one with the highest index is executed
+		[1] = {
+			`utility` -- name of utility to evaluate
+			`get_score` -- function (only accepts `self` as an arg) that returns a number
+		}
+	}
+
+	activate_func = function(self, staticdata, dtime_s) -- called upon activation
+	step_func = function(self, dtime, moveresult) -- called every server step
+	death_func = function(self) -- called when mobs health drops to/below 0
+}
+
+Lua Entity Methods
+------------------
+
+`move(pos, method, speed, animation)`
+- `pos`: position to move to
+- `method`: method used to move to `pos`
+- `speed`: multiplier for `speed`
+- `animation`: animation to play while moving
+
+`halt()`
+- stops movement
+
+`turn_to(yaw[, turn_rate])`
+- `yaw`: yaw (in radians) to turn to
+- `turn_rate`: turn rate in rad/s (default: 10) -- likely to be deprecated
+
+`set_gravity(gravity)`
+- `gravity`: vertical acceleration rate
+
+`set_forward_velocity(speed)`
+- `speed`: rate in m/s to travel forward at
+
+`set_vertical_velocity(speed)`
+- `speed`: rate in m/s to travel vertically at
+
+`apply_knockback(dir, power)`
+- `dir`: direction vector
+- `power`: multiplier for dir
+
+`punch_target(target)`
+- applies 'damage' to 'target'
+
+`hurt(damage)`
+- `damage`: number to subtract from health (ignores armor)
+
+`heal(health)`
+- `health`: number to add to health
+
+`get_center_pos()`
+- returns position at center of hitbox
+
+`pos_in_box(pos[, size])`
+- returns true if 'pos' is within hitbox
+- `size`: width of box to check in (optional)
+
+`animate(anim)`
+- sets animation to `anim`
+
+`set_texture(id, tbl)`
+- `id`: table index
+- `tbl`: table of textures
+
+`set_scale(x)`
+- `x`: multiplier for base scale (0.5 sets scale to half, 2 sets scale to double)
+
+`fix_attached_scale(parent)`
+- sets scale to appropriate value when attached to 'parent'
+- `parent`: object
+
+`memorize(id, val)`
+-- stores `val` to staticdata
+- `id`: key for table
+- `val`: value to store
+
+`forget(id)`
+-- removes `id` from staticdata
+
+`recall(id)`
+-- returns value of `id` from staticdata
+
+`timer(n)`
+-- returns true avery `n` seconds
+
+`get_hitbox()`
+-- returns current hitbox
+
+`get_height()`
+-- returns current height
+
+`get_visual_size()`
+-- returns current visual size
+
+`follow_wielded_item(player)`
+-- returns itemstack, item name of `player`s wielded item if item is in 'follow'
+
+`get_target(target)`
+-- returns if `target` is alive, if mob has a line of sight with `target`, `target`s position
+

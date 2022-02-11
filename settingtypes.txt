@@ -1,0 +1,17 @@
+# How mobs step up nodes. 
+#
+# - Simple means mobs use Minetests builtin stepping.
+# - Fancy means mobs will step up nodes with a quick hop but can cause lag.
+creatura_step_type (Step Type) enum simple simple,fancy
+
+# How often (in seconds) the spawn ABM is called
+creatura_spawn_interval (Spawn ABM Interval) float 10
+
+# Time (in seconds) between spawn steps
+creatura_spawn_step (Spawn Step Interval) float 15
+
+# Allotted time (in μs) per step for A* pathfinding (lower means less lag but slower pathfinding)
+creatura_a_star_alloted_time (A* Pathfinding Alloted time per step) float 500
+
+# Allotted time (in μs) per step for Theta* pathfinding (lower means less lag but slower pathfinding)
+creatura_theta_star_alloted_time (Theta* Pathfinding Alloted time per step) float 700
