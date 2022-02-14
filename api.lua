@@ -55,10 +55,11 @@ end
 ---------------
 
 local function indicate_damage(self)
-    self.object:set_texture_mod("^[colorize:#FF000040")
+    local texture_mod = self.object:get_texture_mod()
+    self.object:set_texture_mod(texture_mod .. "^[colorize:#FF000040")
     core.after(0.2, function()
         if creatura.is_alive(self) then
-            self.object:set_texture_mod("")
+            self.object:set_texture_mod(texture_mod)
         end
     end)
 end
