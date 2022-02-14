@@ -66,7 +66,7 @@ end
 function creatura.register_mob_spawn(name, def)
     local spawn = {
         chance = def.chance or 5,
-        min_radius = def.min_height or nil,
+        min_radius = def.min_radius or nil,
         max_radius = def.max_radius or nil,
         min_height = def.min_height or 0,
         max_height = def.max_height or 128,
@@ -132,7 +132,7 @@ local spawn_queue = {}
 
 local min_spawn_radius = 16
 
-local min_spawn_radius = 64
+local max_spawn_radius = 64
 
 function execute_spawns(player)
     if not player:get_pos() then return end
@@ -144,11 +144,16 @@ function execute_spawns(player)
         local spawn = creatura.registered_mob_spawns[mob]
         if not spawn
         or random(spawn.chance) > 1 then return end
+        local max_radius = spawn.max_radius or max_spawn_radius
+        local min_radius = spawn.min_radius or min_spawn_radius
         local spawn_pos_center = {
-            x = pos.x + random(-min_spawn_radius, spawn.min_radius or min_spawn_radius),
+            x = pos.x + random(-max_radius, max_radius),
             y = pos.y,
-            z = pos.z + random(-min_spawn_radius, spawn.max_radius or min_spawn_radius)
+            z = pos.z + random(-max_radius, max_radius)
         }
+        if vector.distance(pos, spawn_pos_center) < min_radius then
+            return
+        end
         local index_func
         if spawn.spawn_in_nodes then
             index_func = minetest.find_nodes_in_area
@@ -159,7 +164,7 @@ function execute_spawns(player)
         if type(spawn_on) == "string" then
             spawn_on = {spawn_on}
         end
-        local spawn_y_array = index_func(vec_raise(spawn_pos_center, -8), vec_raise(spawn_pos_center, 8), spawn_on)
+        local spawn_y_array = index_func(vec_raise(spawn_pos_center, -max_radius), vec_raise(spawn_pos_center, max_radius), spawn_on)
         if spawn_y_array[1] then
             local spawn_pos = spawn_y_array[1]
 
@@ -168,7 +173,7 @@ function execute_spawns(player)
                 return
             end
 
-            local light = minetest.get_node_light(spawn_pos) or 7
+            local light = minetest.get_node_light(vec_raise(spawn_pos, 1)) or 7
 
             if light > spawn.max_light
             or light < spawn.min_light then
