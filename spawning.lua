@@ -173,7 +173,11 @@ function execute_spawns(player)
                 return
             end
 
-            local light = minetest.get_node_light(vec_raise(spawn_pos, 1)) or 7
+            local light_pos = spawn_pos
+            if not spawn.spawn_in_nodes then
+              light_pos = vec_raise(spawn_pos, 1)
+            end
+            local light = minetest.get_node_light(light_pos) or 7
 
             if light > spawn.max_light
             or light < spawn.min_light then
