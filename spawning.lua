@@ -78,6 +78,7 @@ function creatura.register_mob_spawn(name, def)
         biomes = def.biomes or nil,
         spawn_cluster = def.spawn_cluster or false,
         spawn_in_nodes = def.spawn_in_nodes or false,
+        spawn_cap = def.spawn_cap or 5,
         send_debug = def.send_debug or false
     }
     creatura.registered_mob_spawns[name] = spawn
@@ -146,6 +147,21 @@ function execute_spawns(player)
         or random(spawn.chance) > 1 then return end
         local max_radius = spawn.max_radius or max_spawn_radius
         local min_radius = spawn.min_radius or min_spawn_radius
+
+        -- Spawn cap check
+        local objects = minetest.get_objects_inside_radius(pos, max_radius)
+        local object_count = 0
+        for _, object in ipairs(objects) do
+            if creatura.is_alive(object)
+            and not object:is_player()
+            and object:get_luaentity().name == mob then
+                object_count = object_count + 1
+            end
+        end
+        if object_count >= spawn.spawn_cap then
+            return
+        end
+
         local spawn_pos_center = {
             x = pos.x + random(-max_radius, max_radius),
             y = pos.y,
