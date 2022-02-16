@@ -66,8 +66,6 @@ end
 function creatura.register_mob_spawn(name, def)
     local spawn = {
         chance = def.chance or 5,
-        min_radius = def.min_radius or nil,
-        max_radius = def.max_radius or nil,
         min_height = def.min_height or 0,
         max_height = def.max_height or 128,
         min_light = def.min_light or 6,
@@ -132,24 +130,28 @@ end
 local spawn_queue = {}
 
 local min_spawn_radius = 32
-
 local max_spawn_radius = 128
 
 function execute_spawns(player)
     if not player:get_pos() then return end
     local pos = player:get_pos()
-    local spawnable_mobs = get_spawnable_mobs(pos)
+
+    local spawn_pos_center = {
+        x = pos.x + random(-max_spawn_radius, max_spawn_radius),
+        y = pos.y,
+        z = pos.z + random(-max_spawn_radius, max_spawn_radius)
+    }
+
+    local spawnable_mobs = get_spawnable_mobs(spawn_pos_center)
     if spawnable_mobs
     and #spawnable_mobs > 0 then
         local mob = spawnable_mobs[random(#spawnable_mobs)]
         local spawn = creatura.registered_mob_spawns[mob]
         if not spawn
         or random(spawn.chance) > 1 then return end
-        local max_radius = spawn.max_radius or max_spawn_radius
-        local min_radius = spawn.min_radius or min_spawn_radius
 
         -- Spawn cap check
-        local objects = minetest.get_objects_inside_radius(pos, max_radius)
+        local objects = minetest.get_objects_inside_radius(pos, max_spawn_radius)
         local object_count = 0
         for _, object in ipairs(objects) do
             if creatura.is_alive(object)
@@ -162,12 +164,6 @@ function execute_spawns(player)
             return
         end
 
-        local spawn_pos_center = {
-            x = pos.x + random(-max_radius, max_radius),
-            y = pos.y,
-            z = pos.z + random(-max_radius, max_radius)
-        }
-
         local index_func
         if spawn.spawn_in_nodes then
             index_func = minetest.find_nodes_in_area
@@ -178,13 +174,13 @@ function execute_spawns(player)
         if type(spawn_on) == "string" then
             spawn_on = {spawn_on}
         end
-        local spawn_y_array = index_func(vec_raise(spawn_pos_center, -max_radius), vec_raise(spawn_pos_center, max_radius), spawn_on)
+        local spawn_y_array = index_func(vec_raise(spawn_pos_center, -max_spawn_radius), vec_raise(spawn_pos_center, max_spawn_radius), spawn_on)
         if spawn_y_array[1] then
             local spawn_pos = spawn_y_array[1]
-		        local dist = vector.distance(pos, spawn_pos)
-		        if dist < min_radius or dist > max_radius then
-		            return
-		        end
+            local dist = vector.distance(pos, spawn_pos)
+            if dist < min_spawn_radius or dist > max_spawn_radius then
+                return
+            end
 
             if spawn_pos.y > spawn.max_height
             or spawn_pos.y < spawn.min_height then
