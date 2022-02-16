@@ -131,9 +131,9 @@ end
 
 local spawn_queue = {}
 
-local min_spawn_radius = 16
+local min_spawn_radius = 32
 
-local max_spawn_radius = 64
+local max_spawn_radius = 128
 
 function execute_spawns(player)
     if not player:get_pos() then return end
@@ -167,10 +167,6 @@ function execute_spawns(player)
             y = pos.y,
             z = pos.z + random(-max_radius, max_radius)
         }
-        local dist = vector.distance(pos, spawn_pos_center)
-        if dist < min_radius or dist > max_radius then
-            return
-        end
 
         local index_func
         if spawn.spawn_in_nodes then
@@ -185,6 +181,10 @@ function execute_spawns(player)
         local spawn_y_array = index_func(vec_raise(spawn_pos_center, -max_radius), vec_raise(spawn_pos_center, max_radius), spawn_on)
         if spawn_y_array[1] then
             local spawn_pos = spawn_y_array[1]
+		        local dist = vector.distance(pos, spawn_pos)
+		        if dist < min_radius or dist > max_radius then
+		            return
+		        end
 
             if spawn_pos.y > spawn.max_height
             or spawn_pos.y < spawn.min_height then
