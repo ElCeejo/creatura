@@ -62,8 +62,9 @@ local step_tick = 0.15
 
 -- Local Utilities --
 
+local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
 local function get_node_def(name)
-    return minetest.registered_nodes[name]
+    return minetest.registered_nodes[name] or default_node_def
 end
 
 local function get_ground_level(pos2, max_height)
@@ -334,8 +335,8 @@ function mob:get_wander_pos(min_range, max_range, max_vert)
     local pos2 = get_ground_level(vec_add(pos, vec_multi(vec_normal(move_dir), outset)), max_vert or min_range)
     for i = 2, outset do
         local out_pos = vec_add(pos, vec_multi(vec_normal(move_dir), i))
-        if minetest.registered_nodes[minetest.get_node(out_pos).name].walkable
-        or not minetest.registered_nodes[minetest.get_node(vec_raise(pos2, -1)).name].walkable then
+        if get_node_def(minetest.get_node(out_pos).name).walkable
+        or not get_node_def(minetest.get_node(vec_raise(pos2, -1)).name).walkable then
             break
         end
         pos2 = out_pos
@@ -354,7 +355,7 @@ function mob:get_wander_pos_3d(min_range, max_range)
     local pos2 = vec_add(pos, vec_multi(vec_normal(move_dir), 1))
     local fail_safe = 0
     while fail_safe < 4
-    and minetest.registered_nodes[minetest.get_node(pos2).name].walkable do
+    and get_node_def(minetest.get_node(pos2).name).walkable do
         move_dir = {
             x = random(-10, 10) * 0.1,
             z = random(-10, 10) * 0.1,
@@ -364,7 +365,7 @@ function mob:get_wander_pos_3d(min_range, max_range)
     end
     for i = 2, outset do
         local out_pos = vec_add(pos, vec_multi(vec_normal(move_dir), i))
-        if minetest.registered_nodes[minetest.get_node(out_pos).name].walkable then
+        if get_node_def(minetest.get_node(out_pos).name).walkable then
             break
         end
         pos2 = out_pos
@@ -377,7 +378,7 @@ function mob:is_pos_safe(pos)
     local node = minetest.get_node(pos)
     if not node then return false end
     if minetest.get_item_group(node.name, "igniter") > 0
-    or minetest.registered_nodes[node.name].drawtype == "liquid" then return false end
+    or get_node_def(node.name).drawtype == "liquid" then return false end
     local fall_safe = false
     if self.max_fall ~= 0 then
         for i = 1, self.max_fall or 3 do
@@ -386,7 +387,7 @@ function mob:is_pos_safe(pos)
                 y = floor(mob_pos.y + 0.5) - i,
                 z = pos.z
             }
-            if minetest.registered_nodes[minetest.get_node(fall_pos).name].walkable then
+            if get_node_def(minetest.get_node(fall_pos).name).walkable then
                 fall_safe = true
                 break
             end
@@ -1183,9 +1184,9 @@ function mob:_vitals()
     end
     if self:timer(1) then
         local head_pos = vec_raise(stand_pos, self.height)
-        local head_def = minetest.registered_nodes[minetest.get_node(head_pos).name]
+        local head_def = get_node_def(minetest.get_node(head_pos).name)
         if head_def.drawtype == "liquid"
-        and minetest.get_item_group(minetest.get_node(head_pos), "water") > 0 then
+        and minetest.get_item_group(minetest.get_node(head_pos).name, "water") > 0 then
             if self._breath <= 0 then
                 self:hurt(1)
                 indicate_damage(self)
@@ -1197,8 +1198,8 @@ function mob:_vitals()
                 self:memorize("_breath", self._breath)
             end
         end
-        local stand_def = minetest.registered_nodes[minetest.get_node(stand_pos).name]
-        if minetest.get_item_group(minetest.get_node(stand_pos), "fire") > 0
+        local stand_def = get_node_def(minetest.get_node(stand_pos).name)
+        if minetest.get_item_group(minetest.get_node(stand_pos).name, "fire") > 0
         and stand_def.damage_per_second then
             local damage = stand_def.damage_per_second
             local resist = self.fire_resistance or 0
