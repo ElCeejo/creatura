@@ -1186,7 +1186,7 @@ function mob:_vitals()
         local head_pos = vec_raise(stand_pos, self.height)
         local head_def = get_node_def(minetest.get_node(head_pos).name)
         if head_def.drawtype == "liquid"
-        and minetest.get_item_group(minetest.get_node(head_pos), "water") > 0 then
+        and minetest.get_item_group(minetest.get_node(head_pos).name, "water") > 0 then
             if self._breath <= 0 then
                 self:hurt(1)
                 indicate_damage(self)
@@ -1199,7 +1199,7 @@ function mob:_vitals()
             end
         end
         local stand_def = get_node_def(minetest.get_node(stand_pos).name)
-        if minetest.get_item_group(minetest.get_node(stand_pos), "fire") > 0
+        if minetest.get_item_group(minetest.get_node(stand_pos).name, "fire") > 0
         and stand_def.damage_per_second then
             local damage = stand_def.damage_per_second
             local resist = self.fire_resistance or 0
