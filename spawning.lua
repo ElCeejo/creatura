@@ -167,9 +167,11 @@ function execute_spawns(player)
             y = pos.y,
             z = pos.z + random(-max_radius, max_radius)
         }
-        if vector.distance(pos, spawn_pos_center) < min_radius then
+        local dist = vector.distance(pos, spawn_pos_center)
+        if dist < min_radius or dist > max_radius then
             return
         end
+
         local index_func
         if spawn.spawn_in_nodes then
             index_func = minetest.find_nodes_in_area
