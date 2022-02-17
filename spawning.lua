@@ -66,8 +66,6 @@ end
 function creatura.register_mob_spawn(name, def)
     local spawn = {
         chance = def.chance or 5,
-        min_radius = def.min_height or nil,
-        max_radius = def.max_radius or nil,
         min_height = def.min_height or 0,
         max_height = def.max_height or 128,
         min_light = def.min_light or 6,
@@ -78,6 +76,7 @@ function creatura.register_mob_spawn(name, def)
         biomes = def.biomes or nil,
         spawn_cluster = def.spawn_cluster or false,
         spawn_in_nodes = def.spawn_in_nodes or false,
+        spawn_cap = def.spawn_cap or 5,
         send_debug = def.send_debug or false
     }
     creatura.registered_mob_spawns[name] = spawn
@@ -130,25 +129,41 @@ end
 
 local spawn_queue = {}
 
-local min_spawn_radius = 16
-
-local min_spawn_radius = 64
+local min_spawn_radius = 32
+local max_spawn_radius = 128
 
 function execute_spawns(player)
     if not player:get_pos() then return end
     local pos = player:get_pos()
-    local spawnable_mobs = get_spawnable_mobs(pos)
+
+    local spawn_pos_center = {
+        x = pos.x + random(-max_spawn_radius, max_spawn_radius),
+        y = pos.y,
+        z = pos.z + random(-max_spawn_radius, max_spawn_radius)
+    }
+
+    local spawnable_mobs = get_spawnable_mobs(spawn_pos_center)
     if spawnable_mobs
     and #spawnable_mobs > 0 then
         local mob = spawnable_mobs[random(#spawnable_mobs)]
         local spawn = creatura.registered_mob_spawns[mob]
         if not spawn
         or random(spawn.chance) > 1 then return end
-        local spawn_pos_center = {
-            x = pos.x + random(-min_spawn_radius, spawn.min_radius or min_spawn_radius),
-            y = pos.y,
-            z = pos.z + random(-min_spawn_radius, spawn.max_radius or min_spawn_radius)
-        }
+
+        -- Spawn cap check
+        local objects = minetest.get_objects_inside_radius(pos, max_spawn_radius)
+        local object_count = 0
+        for _, object in ipairs(objects) do
+            if creatura.is_alive(object)
+            and not object:is_player()
+            and object:get_luaentity().name == mob then
+                object_count = object_count + 1
+            end
+        end
+        if object_count >= spawn.spawn_cap then
+            return
+        end
+
         local index_func
         if spawn.spawn_in_nodes then
             index_func = minetest.find_nodes_in_area
@@ -159,16 +174,24 @@ function execute_spawns(player)
         if type(spawn_on) == "string" then
             spawn_on = {spawn_on}
         end
-        local spawn_y_array = index_func(vec_raise(spawn_pos_center, -8), vec_raise(spawn_pos_center, 8), spawn_on)
+        local spawn_y_array = index_func(vec_raise(spawn_pos_center, -max_spawn_radius), vec_raise(spawn_pos_center, max_spawn_radius), spawn_on)
         if spawn_y_array[1] then
             local spawn_pos = spawn_y_array[1]
+            local dist = vector.distance(pos, spawn_pos)
+            if dist < min_spawn_radius or dist > max_spawn_radius then
+                return
+            end
 
             if spawn_pos.y > spawn.max_height
             or spawn_pos.y < spawn.min_height then
                 return
             end
 
-            local light = minetest.get_node_light(spawn_pos) or 7
+            local light_pos = spawn_pos
+            if not spawn.spawn_in_nodes then
+              light_pos = vec_raise(spawn_pos, 1)
+            end
+            local light = minetest.get_node_light(light_pos) or 7
 
             if light > spawn.max_light
             or light < spawn.min_light then

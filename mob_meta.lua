@@ -124,7 +124,7 @@ local mob = {
     damage = 2,
     speed = 4,
 	tracking_range = 16,
-    despawn_after = 100,
+    despawn_after = nil,
     -- Physics
     max_fall = 3,
 	stepheight = 1.1,
