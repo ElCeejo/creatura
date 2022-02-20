@@ -62,79 +62,15 @@ end
 
 local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
 
-local function get_node_height(name)
-	local def = minetest.registered_nodes[name]
-	if not def then return 0.5 end
-	if def.walkable then
-		if def.drawtype == "nodebox" then
-			if def.node_box
-            and def.node_box.type == "fixed" then
-				if type(def.node_box.fixed[1]) == "number" then
-					return 0.5 + def.node_box.fixed[5]
-				elseif type(def.node_box.fixed[1]) == "table" then
-					return 0.5 + def.node_box.fixed[1][5]
-				else
-					return 1
-				end
-			else
-				return 1
-			end
-		else
-			return 1
-		end
-	else
-		return 1
-	end
-end
-
 local function get_node_def(name)
     local def = minetest.registered_nodes[name] or default_node_def
     if def.walkable
-    and get_node_height(name) < 0.26 then
+    and creatura.get_node_height(name) < 0.26 then
         def.walkable = false -- workaround for nodes like snow
     end
     return def
 end
 
-local function get_ground_level(pos2, max_diff)
-    local node = minetest.get_node(pos2)
-    local node_under = minetest.get_node({
-        x = pos2.x,
-        y = pos2.y - 1,
-        z = pos2.z
-    })
-    local walkable = get_node_def(node_under.name) and not get_node_def(node.name)
-    if walkable then
-        return pos2
-    end
-    local diff = 0
-    if not get_node_def(node_under.name) then
-        for i = 1, max_diff do
-            pos2.y = pos2.y - 1
-            node = minetest.get_node(pos2)
-            node_under = minetest.get_node({
-                x = pos2.x,
-                y = pos2.y - 1,
-                z = pos2.z
-            })
-            walkable = get_node_def(node_under.name) and not get_node_def(node.name)
-            if walkable then break end
-        end
-    else
-        for i = 1, max_diff do
-            pos2.y = pos2.y + 1
-            node = minetest.get_node(pos2)
-            node_under = minetest.get_node({
-                x = pos2.x,
-                y = pos2.y - 1,
-                z = pos2.z
-            })
-            walkable = get_node_def(node_under.name) and not get_node_def(node.name)
-            if walkable then break end
-        end
-    end
-    return pos2
-end
 
 -------------------------
 -- Physics/Vitals Tick --
@@ -247,12 +183,12 @@ function mob:turn_to(tyaw, rate)
 
     yaw = yaw + pi
     tyaw = (tyaw + pi) % pi2
-    
+
     local step = math.min(self.dtime * weight, abs(tyaw - yaw) % pi2)
-    
+
     local dir = abs(tyaw - yaw) > pi and -1 or 1
     dir = tyaw > yaw and dir * 1 or dir * -1
-    
+
     local nyaw = (yaw + step * dir) % pi2
     self.object:set_yaw(nyaw - pi)
     self.last_yaw = self.object:get_yaw()
@@ -297,7 +233,7 @@ end
 
 -- Punch 'target'
 
-function mob:punch_target(target) -- 
+function mob:punch_target(target) --
     target:punch(self.object, 1.0, {
         full_punch_interval = 1.0,
         damage_groups = {fleshy = self.damage or 5},
@@ -371,7 +307,7 @@ function mob:get_wander_pos(min_range, max_range, dir)
         local offset = vector.add(pos, vec_multi(vec_dir(pos, self.object:get_pos()), 1.5))
         pos.x = floor(offset.x + 0.5)
         pos.z = floor(offset.z + 0.5)
-        pos = get_ground_level(pos, 1)
+        pos = creatura.get_ground_level(pos, 1, 1, 0)
     end
     local width = self.width
     local outset = random(min_range, max_range)
@@ -595,7 +531,7 @@ end
 
 function mob:get_height()
     local hitbox = self:get_hitbox()
-    return hitbox[5] - hitbox[2] 
+    return hitbox[5] - hitbox[2]
 end
 
 -- Return current visual size
@@ -628,7 +564,7 @@ function mob:follow_wielded_item(player)
     and (is_value_in_table(self.follow, name)
     or is_group_in_table(self.follow, name)) then
         return item, name
-    end 
+    end
 end
 
 function mob:get_target(target)
@@ -719,7 +655,7 @@ function mob:activate(staticdata, dtime)
     -- Staticdata
     if staticdata then
         local data = minetest.deserialize(staticdata)
-        if data then 
+        if data then
             for k, v in pairs(data) do
                 self[k] = v
             end

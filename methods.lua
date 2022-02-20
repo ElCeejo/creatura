@@ -166,7 +166,6 @@ end
 
 local function movement_theta_pathfind(self, pos2, speed)
     local pos = self.object:get_pos()
-    local goal = pos2
     self._path = self._path or {}
     local temp_goal = self._movement_data.temp_goal
     if not temp_goal
@@ -182,7 +181,6 @@ local function movement_theta_pathfind(self, pos2, speed)
             table.remove(self._path, 1)
         end
     end
-    goal.y = pos.y + 0.5
     local dir = vector.direction(self.object:get_pos(), pos2)
     local tyaw = minetest.dir_to_yaw(dir)
     local turn_rate = self.turn_rate or 10
@@ -201,7 +199,7 @@ local function movement_theta_pathfind(self, pos2, speed)
     self:animate("walk")
     self:set_gravity(-9.8)
     self:set_forward_velocity(speed or 2)
-    if self:pos_in_box(goal) then
+    if self:pos_in_box(pos2) then
         self:halt()
     end
 end
@@ -210,7 +208,6 @@ creatura.register_movement_method("creatura:theta_pathfind", movement_theta_path
 
 local function movement_pathfind(self, pos2, speed)
     local pos = self.object:get_pos()
-    local goal = pos2
     local temp_goal = self._movement_data.temp_goal
     self._path = self._path or {}
     if (not temp_goal
@@ -227,7 +224,6 @@ local function movement_pathfind(self, pos2, speed)
             table.remove(self._path, 1)
         end
     end
-    goal.y = pos.y + 0.5
     local dir = vector.direction(self.object:get_pos(), pos2)
     local tyaw = minetest.dir_to_yaw(dir)
     local turn_rate = self.turn_rate or 10
