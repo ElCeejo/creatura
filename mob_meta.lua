@@ -58,53 +58,89 @@ local function fast_ray_sight(pos1, pos2)
     return true
 end
 
-local step_tick = 0.15
-
 -- Local Utilities --
 
 local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
-local function get_node_def(name)
-    return minetest.registered_nodes[name] or default_node_def
+
+local function get_node_height(name)
+	local def = minetest.registered_nodes[name]
+	if not def then return 0.5 end
+	if def.walkable then
+		if def.drawtype == "nodebox" then
+			if def.node_box
+            and def.node_box.type == "fixed" then
+				if type(def.node_box.fixed[1]) == "number" then
+					return 0.5 + def.node_box.fixed[5]
+				elseif type(def.node_box.fixed[1]) == "table" then
+					return 0.5 + def.node_box.fixed[1][5]
+				else
+					return 1
+				end
+			else
+				return 1
+			end
+		else
+			return 1
+		end
+	else
+		return 1
+	end
 end
 
-local function get_ground_level(pos2, max_height)
+local function get_node_def(name)
+    local def = minetest.registered_nodes[name] or default_node_def
+    if def.walkable
+    and get_node_height(name) < 0.26 then
+        def.walkable = false -- workaround for nodes like snow
+    end
+    return def
+end
+
+local function get_ground_level(pos2, max_diff)
     local node = minetest.get_node(pos2)
     local node_under = minetest.get_node({
         x = pos2.x,
         y = pos2.y - 1,
         z = pos2.z
     })
-    local height = 0
-    local walkable = get_node_def(node_under).walkable and not get_node_def(node).walkable
+    local walkable = get_node_def(node_under.name) and not get_node_def(node.name)
     if walkable then
         return pos2
-    elseif not walkable then
-        if not get_node_def(node_under).walkable then
-            while not get_node_def(node_under).walkable
-            and height < max_height do
-                pos2.y = pos2.y - 1
-                node_under = minetest.get_node({
-                    x = pos2.x,
-                    y = pos2.y - 1,
-                    z = pos2.z
-                })
-                height = height + 1
-            end
-        else
-            while get_node_def(node).walkable
-            and height < max_height do
-                pos2.y = pos2.y + 1
-                node = minetest.get_node(pos2)
-                height = height + 1
-            end
-        end
-        return pos2
     end
+    local diff = 0
+    if not get_node_def(node_under.name) then
+        for i = 1, max_diff do
+            pos2.y = pos2.y - 1
+            node = minetest.get_node(pos2)
+            node_under = minetest.get_node({
+                x = pos2.x,
+                y = pos2.y - 1,
+                z = pos2.z
+            })
+            walkable = get_node_def(node_under.name) and not get_node_def(node.name)
+            if walkable then break end
+        end
+    else
+        for i = 1, max_diff do
+            pos2.y = pos2.y + 1
+            node = minetest.get_node(pos2)
+            node_under = minetest.get_node({
+                x = pos2.x,
+                y = pos2.y - 1,
+                z = pos2.z
+            })
+            walkable = get_node_def(node_under.name) and not get_node_def(node.name)
+            if walkable then break end
+        end
+    end
+    return pos2
 end
 
 -------------------------
 -- Physics/Vitals Tick --
 -------------------------
+
+local step_tick = 0.15
 
 minetest.register_globalstep(function(dtime)
     if step_tick <= 0 then
@@ -325,21 +361,56 @@ end
 
 -- Terrain Navigation --
 
-function mob:get_wander_pos(min_range, max_range, max_vert)
+function mob:get_wander_pos(min_range, max_range, dir)
+    local pos = vec_center(self.object:get_pos())
+    pos.y = floor(pos.y + 0.5)
+    local node = minetest.get_node(pos)
+    local us = minetest.get_us_time()
+    if get_node_def(node.name).walkable then -- Occurs if small mob is touching a fence
+        local offset = vector.add(pos, vec_multi(vec_dir(pos, self.object:get_pos()), 1.5))
+        pos.x = floor(offset.x + 0.5)
+        pos.z = floor(offset.z + 0.5)
+        pos = get_ground_level(pos, 1)
+    end
+    local width = self.width
     local outset = random(min_range, max_range)
-    local move_dir = {
+    if width < 0.6 then width = 0.6 end
+    local move_dir = vec_normal({
         x = random(-10, 10) * 0.1,
-        z = 0,
-        y = random(-10, 10) * 0.1
-    }
-    local pos2 = get_ground_level(vec_add(pos, vec_multi(vec_normal(move_dir), outset)), max_vert or min_range)
-    for i = 2, outset do
-        local out_pos = vec_add(pos, vec_multi(vec_normal(move_dir), i))
-        if get_node_def(minetest.get_node(out_pos).name).walkable
-        or not get_node_def(minetest.get_node(vec_raise(pos2, -1)).name).walkable then
+        y = 0,
+        z = random(-10, 10) * 0.1
+    })
+    local pos2 = vec_add(pos, vec_multi(move_dir, width))
+    if get_node_def(minetest.get_node(pos2).name).walkable
+    and not dir then
+        for i = 1, 3 do
+            move_dir = {
+                x = move_dir.z,
+                y = 0,
+                z = move_dir.x * -1
+            }
+            pos2 = vec_add(pos, vec_multi(move_dir, width))
+            if not get_node_def(minetest.get_node(pos2).name).walkable then
+                break
+            end
+        end
+    elseif dir then
+        move_dir = dir
+    end
+    for i = 1, outset do
+        local a_pos = vec_add(pos2, vec_multi(move_dir, i))
+        local a_node = minetest.get_node(a_pos)
+        local b_pos = {x = a_pos.x, y = a_pos.y - 1, z = a_pos.z}
+        local b_node = minetest.get_node(b_pos)
+        if get_node_def(a_node.name).walkable
+        or not get_node_def(b_node.name).walkable then
+            a_pos = get_ground_level(a_pos, floor(self.stepheight or 1))
+        end
+        if not get_node_def(a_node.name).walkable then
+            pos2 = a_pos
+        else
             break
         end
-        pos2 = out_pos
     end
     return pos2
 end
@@ -355,7 +426,7 @@ function mob:get_wander_pos_3d(min_range, max_range)
     local pos2 = vec_add(pos, vec_multi(vec_normal(move_dir), 1))
     local fail_safe = 0
     while fail_safe < 4
-    and get_node_def(minetest.get_node(pos2).name).walkable do
+    and minetest.registered_nodes[minetest.get_node(pos2).name].walkable do
         move_dir = {
             x = random(-10, 10) * 0.1,
             z = random(-10, 10) * 0.1,
@@ -365,7 +436,7 @@ function mob:get_wander_pos_3d(min_range, max_range)
     end
     for i = 2, outset do
         local out_pos = vec_add(pos, vec_multi(vec_normal(move_dir), i))
-        if get_node_def(minetest.get_node(out_pos).name).walkable then
+        if minetest.registered_nodes[minetest.get_node(out_pos).name].walkable then
             break
         end
         pos2 = out_pos
@@ -591,30 +662,6 @@ function mob:clear_action()
     self._action = {}
 end
 
-function mob:force_behavior(func)
-    self._bh_tree_data = {
-        active_task = #self.bh_tree + 1,
-        func = func,
-        current_selection = 1
-    }
-end
-
-function mob:set_behavior(func)
-    self._bh_tree_data = {
-        active_task = #self.bh_tree + 1,
-        func = func,
-        current_selection = 1
-    }
-end
-
-function mob:clear_behavior(func)
-    self._bh_tree_data = {
-        active_task = 0,
-        func = nil,
-        current_selection = 0
-    }
-end
-
 function mob:set_utility(func)
     self._utility_data.func = func
 end
@@ -743,15 +790,6 @@ function mob:staticdata()
     return minetest.serialize(data)
 end
 
-
-local function average(t)
-    local sum = 0
-    for _,v in pairs(t) do -- Get the sum of all numbers in t
-      sum = sum + v
-    end
-    return sum / #t
-end
-
 function mob:on_step(dtime, moveresult)
     --local us_time = minetest.get_us_time()
     if not self.hp then return end
@@ -778,16 +816,10 @@ function mob:on_step(dtime, moveresult)
     if self._move then
         self:_move()
     end
-    -- Execute Mobkit-like Logic
-    self:_execute_logic()
-    -- Execute Task Tree
-    if self.bh_tree
-    and self._execute_bh_tree then
-        self:_execute_bh_tree()
-    end
     if self.utility_stack
     and self._execute_utilities then
         self:_execute_utilities()
+        self:_execute_actions()
     end
     -- Die
     if self.hp <= 0
@@ -1005,9 +1037,9 @@ function mob:_move()
     end
 end
 
--- Execute Tasks and Actions
+-- Execute Actions
 
-function mob:_execute_logic()
+function mob:_execute_actions()
     if not self.object then return end
     local task = self._task
     if #self._task > 0 then
@@ -1022,62 +1054,6 @@ function mob:_execute_logic()
     if type(action) ~= "table" then
         local func = action
         if func(self) then
-            self:clear_action()
-        end
-    end
-end
-
-function mob:_execute_bh_tree(immediate)
-    if not self._bh_tree_data then
-        self._bh_tree_data = {
-            active_task = 0,
-            func = nil,
-            current_selection = 0
-        }
-    end
-    if (self:timer(self.task_timer or 1)
-    or immediate
-    or self._bh_tree_data.func == nil) then
-        for i = #self.bh_tree, 1, -1 do
-            local active_task_no = self._bh_tree_data.active_task
-            if i >= active_task_no then
-                local selector = self.bh_tree[i].selector
-                local selection, args = selector(self)
-                if selection
-                and (args
-                or selection < 1) then
-                    if selection < 1
-                    and i == active_task_no then
-                        self._bh_tree_data = {
-                            active_task = 0,
-                            func = nil,
-                            current_selection = 0
-                        }
-                        self:clear_action()
-                    elseif selection > 0
-                    and ((i > active_task_no
-                    or selection ~= self._bh_tree_data.current_selection)
-                    or active_task_no == 0) then
-                        self._bh_tree_data.active_task = i
-                        self._bh_tree_data.current_selection = selection
-                        self:clear_action()
-                        local func = self.bh_tree[i][selection]
-                        if not self.object:get_pos() then return end
-                        func(unpack(args))
-                        break
-                    end
-                end
-            end
-        end
-    end
-    if self._bh_tree_data.func then
-        local func = self._bh_tree_data.func
-        if func(self) then
-            self._bh_tree_data = {
-                active_task = 0,
-                func = nil,
-                current_selection = 0
-            }
             self:clear_action()
         end
     end

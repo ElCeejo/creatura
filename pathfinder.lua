@@ -309,7 +309,7 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
                     gScore = 0,
                     fScore = 0
                 }
-                temp_gScore = current.gScore + get_distance_to_neighbor(current.pos, neighbor.pos)
+                local temp_gScore = current.gScore + get_distance_to_neighbor(current.pos, neighbor.pos)
                 local new_gScore = 0
                 if openSet[minetest.hash_node_position(neighbor.pos)] then
                     new_gScore = openSet[minetest.hash_node_position(neighbor.pos)].gScore
