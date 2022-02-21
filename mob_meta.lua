@@ -268,12 +268,19 @@ end
 function mob:pos_in_box(pos, size)
     if not pos then return false end
     local center = self:get_center_pos()
-    local width = size or self.width
-    local height = size or (self.height * 0.5)
-    if not size
-    and self.width < 0.5 then
-        width = 0.5
+
+    local width = math.max(self.width, 0.5)
+    local height = (self.height * 0.5)
+    if size then
+        if type(size) == "table" then
+            width = size[1]
+            height = size[2]
+        else
+            width = size
+            height = size
+        end
     end
+
     local edge_a = {
         x = center.x - width,
         y = center.y - height,

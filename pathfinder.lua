@@ -20,14 +20,14 @@ end
 
 local function moveable(pos, width, height)
     local pos1 = {
-        x = pos.x - (width + 0.2),
+        x = pos.x - width,
         y = pos.y,
-        z = pos.z - (width + 0.2),
+        z = pos.z - width,
     }
     local pos2 = {
-        x = pos.x + (width + 0.2),
+        x = pos.x + width,
         y = pos.y,
-        z = pos.z + (width + 0.2),
+        z = pos.z + width,
     }
     for z = pos1.z, pos2.z do
         for x = pos1.x, pos2.x do
@@ -141,7 +141,7 @@ local function get_neighbors(self, pos, goal, swim, fly, climb, tbl, open, close
     local height = self.height
     local result = {}
     local max_up = self.stepheight or 1
-    local max_down = self.stepheight or 1
+    local max_down = self.max_fall or 1
 
     local node_name = minetest.get_node(pos).name
     -- Get the height of the node collision box (and of its node box, if different)
