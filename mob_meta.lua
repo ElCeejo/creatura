@@ -368,7 +368,6 @@ function mob:get_wander_pos(min_range, max_range, dir)
     local pos = vec_center(self.object:get_pos())
     pos.y = floor(pos.y + 0.5)
     local node = minetest.get_node(pos)
-    local us = minetest.get_us_time()
     if get_node_def(node.name).walkable then -- Occurs if small mob is touching a fence
         local offset = vector.add(pos, vec_multi(vec_dir(pos, self.object:get_pos()), 1.5))
         pos.x = floor(offset.x + 0.5)
@@ -418,31 +417,55 @@ function mob:get_wander_pos(min_range, max_range, dir)
     return pos2
 end
 
-function mob:get_wander_pos_3d(min_range, max_range)
-    local pos = self.object:get_pos()
-    local outset = random(min_range, max_range)
-    local move_dir = {
-        x = random(-10, 10) * 0.1,
-        z = random(-10, 10) * 0.1,
-        y = random(-10, 10) * 0.1
-    }
-    local pos2 = vec_add(pos, vec_multi(vec_normal(move_dir), 1))
-    local fail_safe = 0
-    while fail_safe < 4
-    and minetest.registered_nodes[minetest.get_node(pos2).name].walkable do
-        move_dir = {
-            x = random(-10, 10) * 0.1,
-            z = random(-10, 10) * 0.1,
-            y = random(-10, 10) * 0.1
-        }
-        pos2 = vec_add(pos, vec_multi(vec_normal(move_dir), 1))
+function mob:get_wander_pos_3d(min_range, max_range, dir, vert_bias)
+    local pos = vec_center(self.object:get_pos())
+    pos.y = floor(pos.y + 0.5)
+    local node = minetest.get_node(pos)
+    if get_node_def(node.name).walkable then -- Occurs if small mob is touching a fence
+        local offset = vector.add(pos, vec_multi(vec_dir(pos, self.object:get_pos()), 1.5))
+        pos.x = floor(offset.x + 0.5)
+        pos.z = floor(offset.z + 0.5)
+        pos = get_ground_level(pos, 1)
     end
-    for i = 2, outset do
-        local out_pos = vec_add(pos, vec_multi(vec_normal(move_dir), i))
-        if minetest.registered_nodes[minetest.get_node(out_pos).name].walkable then
+    local width = self.width
+    local outset = random(min_range, max_range)
+    if width < 0.6 then width = 0.6 end
+    local move_dir = vec_normal({
+        x = random(-10, 10) * 0.1,
+        y = vert_bias or random(-10, 10) * 0.1,
+        z = random(-10, 10) * 0.1
+    })
+    local pos2 = vec_add(pos, vec_multi(move_dir, width))
+    if get_node_def(minetest.get_node(pos2).name).walkable
+    and not dir then
+        for i = 1, 3 do
+            move_dir = {
+                x = move_dir.z,
+                y = move_dir.y,
+                z = move_dir.x * -1
+            }
+            pos2 = vec_add(pos, vec_multi(move_dir, width))
+            if not get_node_def(minetest.get_node(pos2).name).walkable then
+                break
+            end
+        end
+    elseif dir then
+        move_dir = dir
+    end
+    for i = 1, outset do
+        local a_pos = vec_add(pos2, vec_multi(move_dir, i))
+        local a_node = minetest.get_node(a_pos)
+        local b_pos = {x = a_pos.x, y = a_pos.y - 1, z = a_pos.z}
+        local b_node = minetest.get_node(b_pos)
+        if get_node_def(a_node.name).walkable
+        or not get_node_def(b_node.name).walkable then
+            a_pos = get_ground_level(a_pos, floor(self.stepheight or 1))
+        end
+        if not get_node_def(a_node.name).walkable then
+            pos2 = a_pos
+        else
             break
         end
-        pos2 = out_pos
     end
     return pos2
 end
