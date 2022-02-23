@@ -68,7 +68,7 @@ local function get_node_height(pos)
 					return pos.y + node.node_box.fixed[1][5]
 				else
 					return pos.y + 0.5
-				end		
+				end
 			elseif node.node_box
             and node.node_box.type == 'leveled' then
 				return minetest.get_node_level(pos) / 64 - 0.5 + pos.y
@@ -297,9 +297,9 @@ end
 function creatura.is_valid(mob)
 	if not mob then return false end
 	if type(mob) == "table" then mob = mob.object end
-	if type(mob) == "userdata" then 
+	if type(mob) == "userdata" then
 		if mob:is_player() then
-			if mob:get_look_horizontal() then return mob end 
+			if mob:get_look_horizontal() then return mob end
 		else
 			if mob:get_yaw() then return mob end
 		end
