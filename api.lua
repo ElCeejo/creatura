@@ -54,16 +54,6 @@ end
 -- Local API --
 ---------------
 
-local function indicate_damage(self)
-    local texture_mod = self.object:get_texture_mod()
-    self.object:set_texture_mod(texture_mod .. "^[colorize:#FF000040")
-    core.after(0.2, function()
-        if creatura.is_alive(self) then
-            self.object:set_texture_mod(texture_mod)
-        end
-    end)
-end
-
 local function get_node_height(pos)
     local node = minetest.get_node(pos)
 	local def = minetest.registered_nodes[node.name]
@@ -437,7 +427,7 @@ function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_cap
     if time_from_last_punch > 0.5 then
         self:play_sound("hit")
     end
-    indicate_damage(self)
+    self:indicate_damage()
 end
 
 local path = minetest.get_modpath("creatura")

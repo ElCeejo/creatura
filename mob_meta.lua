@@ -202,11 +202,13 @@ local function index_box_border(self)
     return border
 end
 
-local function indicate_damage(self)
+function mob:indicate_damage()
     local texture_mod = self.object:get_texture_mod()
+    self.object:set_texture_mod("^[colorize:#FF000040")
     self.object:set_texture_mod(texture_mod .. "^[colorize:#FF000040")
     core.after(0.2, function()
         if creatura.is_alive(self) then
+            self.object:set_texture_mod("")
             self.object:set_texture_mod(texture_mod)
         end
     end)
@@ -916,7 +918,7 @@ local function collision_detection(self)
                                  random(-1, 1) * random())
             end
             local velocity = vec_multi(dir, 1.1)
-            local vel1 = vec_multi(velocity, -1)
+            local vel1 = vec_multi(velocity, -2) -- multiplying by -2 accounts for friction
             local vel2 = velocity
             self.object:add_velocity(vel1)
             object:add_velocity(vel2)
@@ -1093,6 +1095,16 @@ function mob:_execute_utilities()
             local utility = self.utility_stack[i].utility
             local get_score = self.utility_stack[i].get_score
             local score, args = get_score(self)
+            if self._utility_data.utility
+            and utility == self._utility_data.utility
+            and self._utility_data.score > 0
+            and score <= 0 then
+                self._utility_data = {
+                    utility = nil,
+                    func = nil,
+                    score = 0
+                }
+            end
             if score > 0
             and score >= self._utility_data.score
             and score >= loop_data.score then
@@ -1150,7 +1162,7 @@ function mob:_vitals()
             end
             local resist = self.fall_resistance or 0
             self:hurt(damage - (damage * (resist * 0.1)))
-            indicate_damage(self)
+            self:indicate_damage()
             if random(4) < 2 then
                 self:play_sound("hurt")
             end
@@ -1166,7 +1178,7 @@ function mob:_vitals()
         and minetest.get_item_group(minetest.get_node(head_pos).name, "water") > 0 then
             if self._breath <= 0 then
                 self:hurt(1)
-                indicate_damage(self)
+                self:indicate_damage()
                 if random(4) < 2 then
                     self:play_sound("hurt")
                 end
@@ -1181,7 +1193,7 @@ function mob:_vitals()
             local damage = stand_def.damage_per_second
             local resist = self.fire_resistance or 0
             self:hurt(damage - (damage * (resist * 0.1)))
-            indicate_damage(self)
+            self:indicate_damage()
             if random(4) < 2 then
                 self:play_sound("hurt")
             end
@@ -1190,7 +1202,7 @@ function mob:_vitals()
     if self:timer(5) then
         local objects = minetest.get_objects_inside_radius(stand_pos, 0.2)
         if #objects > 10 then
-            indicate_damage(self)
+            self:indicate_damage()
             self.hp = self:memorize("hp", -1)
             self:death_func()
         end
