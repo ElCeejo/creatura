@@ -184,7 +184,7 @@ local function movement_generic_pathfind(self, method, pos2, speed)
         end
     else
         temp_goal = self._path[1]
-        if self:pos_in_box(get_goal_pos(self, temp_goal)) then
+        if self:pos_in_box(get_goal_pos(self, temp_goal), {math.max(self.width, 0.5), self.height}) then
             table.remove(self._path, 1)
             if #self._path > 0 then
                 temp_goal = self._path[1]
