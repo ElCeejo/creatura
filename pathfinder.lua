@@ -20,14 +20,14 @@ end
 
 local function moveable(pos, width, height)
     local pos1 = {
-        x = pos.x - width,
+        x = pos.x - (width + 0.2),
         y = pos.y,
-        z = pos.z - width,
+        z = pos.z - (width + 0.2),
     }
     local pos2 = {
-        x = pos.x + width,
+        x = pos.x + (width + 0.2),
         y = pos.y,
-        z = pos.z + width,
+        z = pos.z + (width + 0.2),
     }
     for z = pos1.z, pos2.z do
         for x = pos1.x, pos2.x do
