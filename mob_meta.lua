@@ -203,13 +203,11 @@ local function index_box_border(self)
 end
 
 function mob:indicate_damage()
-    local texture_mod = self.object:get_texture_mod()
-    self.object:set_texture_mod("^[colorize:#FF000040")
-    self.object:set_texture_mod(texture_mod .. "^[colorize:#FF000040")
+    self._original_texture_mod = self._original_texture_mod or self.object:get_texture_mod()
+    self.object:set_texture_mod(self._original_texture_mod .. "^[colorize:#FF000040")
     core.after(0.2, function()
         if creatura.is_alive(self) then
-            self.object:set_texture_mod("")
-            self.object:set_texture_mod(texture_mod)
+            self.object:set_texture_mod(self._original_texture_mod)
         end
     end)
 end
@@ -249,12 +247,12 @@ function mob:turn_to(tyaw, rate)
 
     yaw = yaw + pi
     tyaw = (tyaw + pi) % pi2
-    
+
     local step = math.min(self.dtime * weight, abs(tyaw - yaw) % pi2)
-    
+
     local dir = abs(tyaw - yaw) > pi and -1 or 1
     dir = tyaw > yaw and dir * 1 or dir * -1
-    
+
     local nyaw = (yaw + step * dir) % pi2
     self.object:set_yaw(nyaw - pi)
     self.last_yaw = self.object:get_yaw()
@@ -299,7 +297,7 @@ end
 
 -- Punch 'target'
 
-function mob:punch_target(target) -- 
+function mob:punch_target(target) --
     target:punch(self.object, 1.0, {
         full_punch_interval = 1.0,
         damage_groups = {fleshy = self.damage or 5},
@@ -620,7 +618,7 @@ end
 
 function mob:get_height()
     local hitbox = self:get_hitbox()
-    return hitbox[5] - hitbox[2] 
+    return hitbox[5] - hitbox[2]
 end
 
 -- Return current visual size
@@ -653,7 +651,7 @@ function mob:follow_wielded_item(player)
     and (is_value_in_table(self.follow, name)
     or is_group_in_table(self.follow, name)) then
         return item, name
-    end 
+    end
 end
 
 function mob:get_target(target)
@@ -744,7 +742,7 @@ function mob:activate(staticdata, dtime)
     -- Staticdata
     if staticdata then
         local data = minetest.deserialize(staticdata)
-        if data then 
+        if data then
             for k, v in pairs(data) do
                 self[k] = v
             end
