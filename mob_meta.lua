@@ -62,79 +62,15 @@ end
 
 local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
 
-local function get_node_height(name)
-	local def = minetest.registered_nodes[name]
-	if not def then return 0.5 end
-	if def.walkable then
-		if def.drawtype == "nodebox" then
-			if def.node_box
-            and def.node_box.type == "fixed" then
-				if type(def.node_box.fixed[1]) == "number" then
-					return 0.5 + def.node_box.fixed[5]
-				elseif type(def.node_box.fixed[1]) == "table" then
-					return 0.5 + def.node_box.fixed[1][5]
-				else
-					return 1
-				end
-			else
-				return 1
-			end
-		else
-			return 1
-		end
-	else
-		return 1
-	end
-end
-
 local function get_node_def(name)
     local def = minetest.registered_nodes[name] or default_node_def
     if def.walkable
-    and get_node_height(name) < 0.26 then
+    and creatura.get_node_height(name) < 0.26 then
         def.walkable = false -- workaround for nodes like snow
     end
     return def
 end
 
-local function get_ground_level(pos2, max_diff)
-    local node = minetest.get_node(pos2)
-    local node_under = minetest.get_node({
-        x = pos2.x,
-        y = pos2.y - 1,
-        z = pos2.z
-    })
-    local walkable = get_node_def(node_under.name) and not get_node_def(node.name)
-    if walkable then
-        return pos2
-    end
-    local diff = 0
-    if not get_node_def(node_under.name) then
-        for i = 1, max_diff do
-            pos2.y = pos2.y - 1
-            node = minetest.get_node(pos2)
-            node_under = minetest.get_node({
-                x = pos2.x,
-                y = pos2.y - 1,
-                z = pos2.z
-            })
-            walkable = get_node_def(node_under.name) and not get_node_def(node.name)
-            if walkable then break end
-        end
-    else
-        for i = 1, max_diff do
-            pos2.y = pos2.y + 1
-            node = minetest.get_node(pos2)
-            node_under = minetest.get_node({
-                x = pos2.x,
-                y = pos2.y - 1,
-                z = pos2.z
-            })
-            walkable = get_node_def(node_under.name) and not get_node_def(node.name)
-            if walkable then break end
-        end
-    end
-    return pos2
-end
 
 -------------------------
 -- Physics/Vitals Tick --
@@ -332,12 +268,19 @@ end
 function mob:pos_in_box(pos, size)
     if not pos then return false end
     local center = self:get_center_pos()
-    local width = size or self.width
-    local height = size or (self.height * 0.5)
-    if not size
-    and self.width < 0.5 then
-        width = 0.5
+
+    local width = math.max(self.width, 0.5)
+    local height = (self.height * 0.5)
+    if size then
+        if type(size) == "table" then
+            width = size[1]
+            height = size[2]
+        else
+            width = size
+            height = size
+        end
     end
+
     local edge_a = {
         x = center.x - width,
         y = center.y - height,
@@ -370,7 +313,7 @@ function mob:get_wander_pos(min_range, max_range, dir)
         local offset = vector.add(pos, vec_multi(vec_dir(pos, self.object:get_pos()), 1.5))
         pos.x = floor(offset.x + 0.5)
         pos.z = floor(offset.z + 0.5)
-        pos = get_ground_level(pos, 1)
+        pos = creatura.get_ground_level(pos, 1, 1, 0)
     end
     local width = self.width
     local outset = random(min_range, max_range)

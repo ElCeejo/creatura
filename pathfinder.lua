@@ -44,39 +44,55 @@ local function moveable(pos, width, height)
     return true
 end
 
-local function get_ground_level(pos2, max_height)
-    local node = minetest.get_node(pos2)
-    local node_under = minetest.get_node({
-        x = pos2.x,
-        y = pos2.y - 1,
-        z = pos2.z
-    })
-    local height = 0
-    local walkable = is_node_walkable(node_under.name) and not is_node_walkable(node.name)
-    if walkable then
-        return pos2
-    elseif not walkable then
-        if not is_node_walkable(node_under.name) then
-            while not is_node_walkable(node_under.name)
-            and height < max_height do
-                pos2.y = pos2.y - 1
-                node_under = minetest.get_node({
-                    x = pos2.x,
-                    y = pos2.y - 1,
-                    z = pos2.z
-                })
-                height = height + 1
+creatura.get_node_height = function(name, force_node_box)
+    local def = minetest.registered_nodes[name]
+    if not def then return 0.5 end
+    if def.walkable then
+        if def.drawtype == "nodebox" then
+            if def.collision_box and not force_node_box
+            and (def.collision_box.type == "fixed" or def.collision_box.type == "connected") then
+                if type(def.collision_box.fixed[1]) == "number" then
+                    return 0.5 + def.collision_box.fixed[5]
+                elseif type(def.collision_box.fixed[1]) == "table" then
+                    return 0.5 + def.collision_box.fixed[1][5]
+                else
+                    return 1
+                end
+            elseif def.node_box
+            and (def.node_box.type == "fixed" or def.node_box.type == "connected") then
+                if type(def.node_box.fixed[1]) == "number" then
+                    return 0.5 + def.node_box.fixed[5]
+                elseif type(def.node_box.fixed[1]) == "table" then
+                    return 0.5 + def.node_box.fixed[1][5]
+                else
+                    return 1
+                end
+            else
+                return 1
             end
         else
-            while is_node_walkable(node.name)
-            and height < max_height do
-                pos2.y = pos2.y + 1
-                node = minetest.get_node(pos2)
-                height = height + 1
+            return 1
+        end
+    else
+        return 1
+    end
+end
+
+creatura.get_ground_level = function(pos, max_up, max_down, current_node_height)
+    for y = math.ceil(max_up) + 1, -(math.ceil(max_down)) - 1, -1 do
+        local pos2 = vector.new(pos.x, pos.y + y, pos.z)
+        local node = minetest.get_node(pos2)
+        local node_under = minetest.get_node(pos2 + vector.new(0, -1, 0))
+
+        if not is_node_walkable(node.name) and is_node_walkable(node_under.name) then
+            local node_height = creatura.get_node_height(node_under.name)
+            local y_diff = y - 1 + node_height - current_node_height
+            if y_diff <= max_up and y_diff >= (-max_down) then
+                return pos2
             end
         end
-        return pos2
     end
+    return nil
 end
 
 local function get_distance(start_pos, end_pos)
@@ -120,6 +136,99 @@ end
 
 -- Find a path from start to goal
 
+local function get_neighbors(self, pos, goal, swim, fly, climb, tbl, open, closed)
+    local width = self.width
+    local height = self.height
+    local result = {}
+    local max_up = self.stepheight or 1
+    local max_down = self.max_fall or 1
+
+    local node_name = minetest.get_node(pos).name
+    -- Get the height of the node collision box (and of its node box, if different)
+    local node_height = 0
+    local node_height_node_box = 0
+    if is_node_walkable(node_name) then
+        node_height = creatura.get_node_height(node_name)
+        node_height_node_box = creatura.get_node_height(node_name, true)
+    else
+        node_height = creatura.get_node_height(minetest.get_node(pos + vector.new(0, -1, 0)).name) - 1
+        node_height_node_box = creatura.get_node_height(minetest.get_node(pos + vector.new(0, -1, 0)).name, true) - 1
+    end
+    -- Calculate the height difference between the collision and node boxes
+    -- (This is because the mob will be standing on the collision box, but the
+    --  raycast checks will collide with the node box, so we must avoid it)
+    local node_height_diff = node_height_node_box - node_height
+
+    for i = 1, #tbl do
+        local neighbor = vector.add(pos, tbl[i])
+        if not open[minetest.hash_node_position(neighbor)]
+        and not closed[minetest.hash_node_position(neighbor)] then
+
+            local neighbor_x
+            local neighbor_z
+
+            if tbl[i].y == 0
+            and not fly
+            and not swim then
+                neighbor = creatura.get_ground_level(neighbor, max_up, max_down, node_height)
+                if neighbor and tbl[i].x ~= 0 and tbl[i].z ~= 0 then
+                    -- This is a diagonal, check both corners are clear and same Y
+                    neighbor_x = creatura.get_ground_level(vector.new(neighbor.x, neighbor.y, pos.z), max_up, max_down, node_height)
+                    neighbor_z = creatura.get_ground_level(vector.new(pos.x, neighbor.y, neighbor.z), max_up, max_down, node_height)
+                    if not neighbor_x or not neighbor_z
+                    or neighbor_x.y ~= neighbor.y
+                    or neighbor_z.y ~= neighbor.y then
+                        neighbor = nil
+                    end
+                end
+            end
+            if neighbor then
+                local can_move = true
+                if swim then
+                    local neighbor_node = minetest.get_node(neighbor)
+                    can_move = is_node_liquid(neighbor_node.name)
+                end
+
+                -- Adjust entity Y in clearance check by this much
+                local y_adjustment = -0.49
+                -- Adjust entity height in clearance check by this much
+                local h_adjustment = -0.02
+                -- Get the height of the node collision box, and the difference to the node box
+                local neighbor_height = creatura.get_node_height(minetest.get_node(neighbor + vector.new(0, -1, 0)).name) - 1
+                local neighbor_height_node_box = creatura.get_node_height(minetest.get_node(neighbor + vector.new(0, -1, 0)).name, true) - 1
+                local neighbor_height_diff = neighbor_height_node_box - neighbor_height
+                -- Check there is enough vertical clearance to move to this node
+                local height_clearance = math.max(pos.y + node_height - neighbor.y - neighbor_height, 0)
+                if not moveable(vec_raise(neighbor, y_adjustment + neighbor_height + neighbor_height_diff), width, height + h_adjustment + height_clearance - neighbor_height_diff) then
+                    can_move = false
+                end
+                if tbl[i].x ~= 0 and tbl[i].z ~= 0 then
+                    -- If target node is diagonal, check the orthogonal nodes too
+                    if not moveable(vec_raise(neighbor_x, y_adjustment + neighbor_height + neighbor_height_diff), width, height + h_adjustment + height_clearance + neighbor_height_diff)
+                    or not moveable(vec_raise(neighbor_z, y_adjustment + neighbor_height + neighbor_height_diff), width, height + h_adjustment + height_clearance + neighbor_height_diff) then
+                        can_move = false
+                    end
+                end
+                -- If we're going upwards, check there's enough clearance above our head
+                height_clearance = math.max(neighbor.y + neighbor_height - pos.y - node_height, 0)
+                if height_clearance > 0 and not moveable(vec_raise(pos, y_adjustment + node_height + node_height_diff), width, height + h_adjustment + height_clearance - node_height_diff) then
+                    can_move = false
+                end
+
+                if (can_move
+                    or (climb
+                        and neighbor.x == pos.x
+                        and neighbor.z == pos.z))
+                and (not swim
+                    or is_node_liquid(minetest.get_node(neighbor).name)) then
+                    table.insert(result, neighbor)
+                end
+            end
+        end
+    end
+    return result
+end
+
 function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, climb, fly, swim)
     climb = climb or false
     fly = fly or false
@@ -158,49 +267,7 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
         }
     end
 
-    local function get_neighbors(pos, width, height, tbl, open, closed)
-        local result = {}
-        for i = 1, #tbl do
-            local neighbor = vector.add(pos, tbl[i])
-            if neighbor.y == pos.y
-            and not fly
-            and not swim then
-                neighbor = get_ground_level(neighbor, 1)
-            end
-            local can_move = get_line_of_sight({x = pos.x, y = neighbor.y, z = pos.z}, neighbor)
-            if swim then
-                can_move = true
-            end
-            if not moveable(vec_raise(neighbor, -0.49), width, height) then
-                can_move = false
-                if neighbor.y == pos.y
-                and moveable(vec_raise(neighbor, 0.51), width, height) then
-                    neighbor = vec_raise(neighbor, 1)
-                    can_move = true
-                end
-            end
-            if vector.equals(neighbor, goal) then
-                can_move = true
-            end
-            if open[minetest.hash_node_position(neighbor)]
-            or closed[minetest.hash_node_position(neighbor)] then
-                can_move = false
-            end
-            if can_move
-            and ((is_on_ground(neighbor)
-            or (fly or swim))
-            or (neighbor.x == pos.x
-            and neighbor.z == pos.z
-            and climb))
-            and (not swim
-            or is_node_liquid(minetest.get_node(neighbor).name)) then
-                table.insert(result, neighbor)
-            end
-        end
-        return result
-    end
-
-    local function find_path(start, goal)
+    local function find_path(self, start, goal)
         local us_time = minetest.get_us_time()
 
         start = {
@@ -208,7 +275,7 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
             y = floor(start.y + 0.5),
             z = floor(start.z + 0.5)
         }
-    
+
         goal = {
             x = floor(goal.x + 0.5),
             y = floor(goal.y + 0.5),
@@ -219,22 +286,22 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
         and goal.z == start.z then -- No path can be found
             return nil
         end
-    
+
         local openSet = self._path_data.open or {}
-    
+
         local closedSet = self._path_data.closed or {}
-    
+
         local start_index = minetest.hash_node_position(start)
-    
+
         openSet[start_index] = {
             pos = start,
             parent = nil,
             gScore = 0,
             fScore = get_distance(start, goal)
         }
-    
+
         local count = self._path_data.count or 1
-    
+
         while count > 0 do
             if minetest.get_us_time() - us_time > a_star_alloted_time then
                 self._path_data = {
@@ -248,14 +315,14 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
             -- Initialize ID and data
             local current_id
             local current
-    
+
             -- Get an initial id in open set
             for i, v in pairs(openSet) do
                 current_id = i
                 current = v
                 break
             end
-    
+
             -- Find lowest f cost
             for i, v in pairs(openSet) do
                 if v.fScore < current.fScore then
@@ -263,7 +330,7 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
                     current = v
                 end
             end
-    
+
             -- Add lowest fScore to closedSet and remove from openSet
             openSet[current_id] = nil
             closedSet[current_id] = current
@@ -296,11 +363,11 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
                 self._path_data = {}
                 return reverse_path
             end
-    
+
             count = count - 1
-    
-            local adjacent = get_neighbors(current.pos, obj_width, obj_height, path_neighbors, openSet, closedSet)
-    
+
+            local adjacent = get_neighbors(self, current.pos, goal, swim, fly, climb, path_neighbors, openSet, closedSet)
+
             -- Go through neighboring nodes
             for i = 1, #adjacent do
                 local neighbor = {
@@ -309,21 +376,18 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
                     gScore = 0,
                     fScore = 0
                 }
-                local temp_gScore = current.gScore + get_distance_to_neighbor(current.pos, neighbor.pos)
-                local new_gScore = 0
-                if openSet[minetest.hash_node_position(neighbor.pos)] then
-                    new_gScore = openSet[minetest.hash_node_position(neighbor.pos)].gScore
-                end
-                if (temp_gScore < new_gScore
-                or not openSet[minetest.hash_node_position(neighbor.pos)])
-                and not closedSet[minetest.hash_node_position(neighbor.pos)] then
-                    if not openSet[minetest.hash_node_position(neighbor.pos)] then
+                local neighbor_id = minetest.hash_node_position(neighbor.pos)
+                local neighbour_gScore = current.gScore + get_distance_to_neighbor(current.pos, neighbor.pos)
+                if (not openSet[neighbor_id]
+                    or neighbour_gScore < openSet[neighbor_id].gScore)
+                and not closedSet[neighbor_id] then
+                    if not openSet[neighbor_id] then
                         count = count + 1
                     end
                     local hCost = get_distance_to_neighbor(neighbor.pos, goal)
-                    neighbor.gScore = temp_gScore
-                    neighbor.fScore = temp_gScore + hCost
-                    openSet[minetest.hash_node_position(neighbor.pos)] = neighbor
+                    neighbor.gScore = neighbour_gScore
+                    neighbor.fScore = neighbour_gScore + hCost
+                    openSet[neighbor_id] = neighbor
                 end
             end
             if count > (max_open or 100) then
@@ -334,7 +398,7 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
         self._path_data = {}
         return nil
     end
-    return find_path(start, goal)
+    return find_path(self, start, goal)
 end
 
 
@@ -408,49 +472,7 @@ function creatura.find_theta_path(self, start, goal, obj_width, obj_height, max_
         }
     end
 
-    local function get_neighbors(pos, width, height, tbl, open, closed)
-        local result = {}
-        for i = 1, #tbl do
-            local neighbor = vector.add(pos, tbl[i])
-            if neighbor.y == pos.y
-            and not fly
-            and not swim then
-                neighbor = get_ground_level(neighbor, 1)
-            end
-            local can_move = get_line_of_sight({x = pos.x, y = neighbor.y, z = pos.z}, neighbor)
-            if swim then
-                can_move = true
-            end
-            if not moveable(vec_raise(neighbor, -0.49), width, height) then
-                can_move = false
-                if neighbor.y == pos.y
-                and moveable(vec_raise(neighbor, 0.51), width, height) then
-                    neighbor = vec_raise(neighbor, 1)
-                    can_move = true
-                end
-            end
-            if vector.equals(neighbor, goal) then
-                can_move = true
-            end
-            if open[minetest.hash_node_position(neighbor)]
-            or closed[minetest.hash_node_position(neighbor)] then
-                can_move = false
-            end
-            if can_move
-            and ((is_on_ground(neighbor)
-            or (fly or swim))
-            or (neighbor.x == pos.x
-            and neighbor.z == pos.z
-            and climb))
-            and (not swim
-            or is_node_liquid(minetest.get_node(neighbor).name)) then
-                table.insert(result, neighbor)
-            end
-        end
-        return result
-    end
-
-    local function find_path(start, goal)
+    local function find_path(self, start, goal)
         local us_time = minetest.get_us_time()
 
         start = {
@@ -458,7 +480,7 @@ function creatura.find_theta_path(self, start, goal, obj_width, obj_height, max_
             y = floor(start.y + 0.5),
             z = floor(start.z + 0.5)
         }
-    
+
         goal = {
             x = floor(goal.x + 0.5),
             y = floor(goal.y + 0.5),
@@ -469,22 +491,22 @@ function creatura.find_theta_path(self, start, goal, obj_width, obj_height, max_
         and goal.z == start.z then -- No path can be found
             return nil
         end
-    
+
         local openSet = self._path_data.open or {}
-    
+
         local closedSet = self._path_data.closed or {}
-    
+
         local start_index = minetest.hash_node_position(start)
-    
+
         openSet[start_index] = {
             pos = start,
             parent = nil,
             gScore = 0,
             fScore = get_distance(start, goal)
         }
-    
+
         local count = self._path_data.count or 1
-    
+
         while count > 0 do
             if minetest.get_us_time() - us_time > theta_star_alloted_time then
                 self._path_data = {
@@ -542,11 +564,11 @@ function creatura.find_theta_path(self, start, goal, obj_width, obj_height, max_
                 self._path_data = {}
                 return reverse_path
             end
-    
+
             count = count - 1
-    
-            local adjacent = get_neighbors(current.pos, obj_width, obj_height, path_neighbors, openSet, closedSet)
-    
+
+            local adjacent = get_neighbors(self, current.pos, goal, swim, fly, climb, path_neighbors, openSet, closedSet)
+
             -- Go through neighboring nodes
             for i = 1, #adjacent do
                 local neighbor = {
@@ -606,5 +628,5 @@ function creatura.find_theta_path(self, start, goal, obj_width, obj_height, max_
         self._path_data = {}
         return nil
     end
-    return find_path(start, goal)
+    return find_path(self, start, goal)
 end

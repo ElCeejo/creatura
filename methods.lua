@@ -14,12 +14,12 @@ local function diff(a, b) -- Get difference between 2 angles
 end
 
 local function clamp(val, min, max)
-	if val < min then
-		val = min
-	elseif max < val then
-		val = max
-	end
-	return val
+    if val < min then
+        val = min
+    elseif max < val then
+        val = max
+    end
+    return val
 end
 
 local function vec_center(v)
@@ -104,26 +104,26 @@ end
 -- Rotate on Z axis in random direction until 90 degree angle is reached
 
 function creatura.action_fallover(self)
-	local zrot = 0
-	local init = false
+    local zrot = 0
+    local init = false
     local dir = 1
-	local function func(self)
-		if not init then
-			self:animate("stand")
+    local function func(self)
+        if not init then
+            self:animate("stand")
             if random(2) < 2 then
                 dir = -1
             end
-			init = true
-		end
-		local rot = self.object:get_rotation()
+            init = true
+        end
+        local rot = self.object:get_rotation()
         local goal = (pi * 0.5) * dir
         local dif = abs(rot.z - goal)
         zrot = rot.z + (dif * dir) * 0.15
-		self.object:set_rotation({x = rot.x, y = rot.y, z = zrot})
-		if (dir > 0 and zrot >= goal)
+        self.object:set_rotation({x = rot.x, y = rot.y, z = zrot})
+        if (dir > 0 and zrot >= goal)
         or (dir < 0 and zrot <= goal) then return true end
-	end
-	self:set_action(func)
+    end
+    self:set_action(func)
 end
 
 ----------------------
@@ -164,28 +164,40 @@ function get_line_of_sight(a, b)
     return true
 end
 
-local function movement_theta_pathfind(self, pos2, speed)
+local function get_goal_pos(self, goal)
+    local node_name = minetest.get_node(vec_raise(goal, -1)).name
+    local node_height = creatura.get_node_height(node_name) - 1
+    return vector.new(goal.x, goal.y + node_height, goal.z)
+end
+
+local function movement_generic_pathfind(self, method, pos2, speed)
     local pos = self.object:get_pos()
-    local goal = pos2
+
     self._path = self._path or {}
-    local temp_goal = self._movement_data.temp_goal
-    if not temp_goal
-    or self:pos_in_box({x = temp_goal.x, y = pos.y + self.height * 0.5, z = temp_goal.z}) then
-        self._movement_data.temp_goal = creatura.get_next_move(self, pos2)
-        temp_goal = self._movement_data.temp_goal
-    end
-    if #self._path < 1 then
-        self._path = creatura.find_theta_path(self, self.object:get_pos(), pos2, self.width, self.height, 500) or {}
+    local temp_goal
+    if #self._path == 0 then
+        self._path = method(self, self.object:get_pos(), pos2, self.width, self.height, 500) or {}
+        if #self._path > 0 then
+            temp_goal = self._path[1]
+        else
+            temp_goal = creatura.get_next_move(self, pos2)
+        end
     else
-        temp_goal = self._path[2] or self._path[1]
-        if self:pos_in_box({x = temp_goal.x, y = pos.y + self.height * 0.5, z = temp_goal.z}) then
+        temp_goal = self._path[1]
+        if self:pos_in_box(get_goal_pos(self, temp_goal), {math.max(self.width, 0.5), self.height}) then
             table.remove(self._path, 1)
+            if #self._path > 0 then
+                temp_goal = self._path[1]
+            else
+                temp_goal = nil
+            end
         end
     end
-    goal.y = pos.y + 0.5
+
     local dir = vector.direction(self.object:get_pos(), pos2)
     local tyaw = minetest.dir_to_yaw(dir)
     local turn_rate = self.turn_rate or 10
+    local advance = speed or 2
     if temp_goal then
         dir = vector.direction(self.object:get_pos(), temp_goal)
         tyaw = minetest.dir_to_yaw(dir)
@@ -196,61 +208,33 @@ local function movement_theta_pathfind(self, pos2, speed)
             self:halt()
             return
         end
+        local goal_dist = vector.distance(vector.new(pos.x, 0, pos.z), vector.new(temp_goal.x, 0, temp_goal.z))
+        if goal_dist < advance / 10 then
+            advance = math.min(advance, goal_dist * 10)
+        end
     end
     self:turn_to(tyaw, turn_rate)
     self:animate("walk")
     self:set_gravity(-9.8)
-    self:set_forward_velocity(speed or 2)
-    if self:pos_in_box(goal) then
+
+    -- The more we're turning, the less we should be moving forward
+    local turn_amount = math.min(self.dtime * turn_rate, abs(tyaw - self.object:get_yaw()) % pi2) / (self.dtime * turn_rate)
+    advance = advance * (1 - turn_amount)
+    self:set_forward_velocity(advance)
+
+    if self:pos_in_box(get_goal_pos(self, pos2)) then
         self:halt()
     end
 end
 
+local function movement_theta_pathfind(self, pos2, speed)
+    return movement_generic_pathfind(self, creatura.find_theta_path, pos2, speed)
+end
 creatura.register_movement_method("creatura:theta_pathfind", movement_theta_pathfind)
 
 local function movement_pathfind(self, pos2, speed)
-    local pos = self.object:get_pos()
-    local goal = pos2
-    local temp_goal = self._movement_data.temp_goal
-    self._path = self._path or {}
-    if (not temp_goal
-    or self:pos_in_box({x = temp_goal.x, y = pos.y + self.height * 0.5, z = temp_goal.z}))
-    and #self._path < 1 then
-        self._movement_data.temp_goal = creatura.get_next_move(self, pos2)
-        temp_goal = self._movement_data.temp_goal
-    end
-    if #self._path < 2 then
-        self._path = creatura.find_path(self, self.object:get_pos(), pos2, self.width, self.height, 100) or {}
-    else
-        temp_goal = self._path[2]
-        if self:pos_in_box({x = temp_goal.x, y = pos.y + self.height * 0.5, z = temp_goal.z}) then
-            table.remove(self._path, 1)
-        end
-    end
-    goal.y = pos.y + 0.5
-    local dir = vector.direction(self.object:get_pos(), pos2)
-    local tyaw = minetest.dir_to_yaw(dir)
-    local turn_rate = self.turn_rate or 10
-    if temp_goal then
-        dir = vector.direction(self.object:get_pos(), temp_goal)
-        tyaw = minetest.dir_to_yaw(dir)
-        if #self._path < 2
-        and not self:is_pos_safe(temp_goal) then
-            self:animate("walk")
-            self:set_forward_velocity(0)
-            self:halt()
-            return
-        end
-    end
-    self:turn_to(tyaw, turn_rate)
-    self:animate("walk")
-    self:set_gravity(-9.8)
-    self:set_forward_velocity(speed or 2)
-    if self:pos_in_box(pos2) then
-        self:halt()
-    end
+    return movement_generic_pathfind(self, creatura.find_path, pos2, speed)
 end
-
 creatura.register_movement_method("creatura:pathfind", movement_pathfind)
 
 -- Obstacle Avoidance
@@ -383,4 +367,3 @@ local function movement_neighbors(self, pos2, speed)
 end
 
 creatura.register_movement_method("creatura:neighbors", movement_neighbors)
-
