@@ -18,31 +18,7 @@ local function is_node_liquid(name)
     return def and def.drawtype == "liquid"
 end
 
-local function moveable(pos, width, height)
-    local pos1 = {
-        x = pos.x - (width + 0.2),
-        y = pos.y,
-        z = pos.z - (width + 0.2),
-    }
-    local pos2 = {
-        x = pos.x + (width + 0.2),
-        y = pos.y,
-        z = pos.z + (width + 0.2),
-    }
-    for z = pos1.z, pos2.z do
-        for x = pos1.x, pos2.x do
-            local pos3 = {x = x, y = pos.y + height, z = z}
-            local pos4 = {x = x, y = pos.y, z = z}
-            local ray = minetest.raycast(pos3, pos4, false, false)
-            for pointed_thing in ray do
-                if pointed_thing.type == "node" then
-                    return false
-                end
-            end
-        end
-    end
-    return true
-end
+local moveable = creatura.is_pos_moveable
 
 local function get_ground_level(pos2, max_height)
     local node = minetest.get_node(pos2)

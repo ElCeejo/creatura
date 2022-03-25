@@ -139,14 +139,17 @@ function creatura.is_pos_moveable(pos, width, height)
         y = pos.y,
         z = pos.z + (width + 0.2),
     }
-    for x = pos1.x, pos2.x do
-        for z = pos1.z, pos2.z do
-            local pos3 = {x = x, y = (pos.y + height), z = z}
-            local pos4 = {x = pos3.x, y = pos.y, z = pos3.z}
+    for z = pos1.z, pos2.z do
+        for x = pos1.x, pos2.x do
+            local pos3 = {x = x, y = pos.y + height, z = z}
+            local pos4 = {x = x, y = pos.y + 0.01, z = z}
             local ray = minetest.raycast(pos3, pos4, false, false)
             for pointed_thing in ray do
                 if pointed_thing.type == "node" then
-                    return false
+                    local name = minetest.get_node(pointed_thing.under).name
+                    if minetest.registered_nodes[name].walkable then
+                        return false
+                    end
                 end
             end
         end
@@ -172,9 +175,13 @@ function creatura.get_next_move(self, pos2)
     local last_move = self._movement_data.last_move
     local width = self.width
     local height = self.height
-    local scan_width = width * 2
     local pos = self.object:get_pos()
-    pos.y = floor(pos.y + 0.5)
+    pos = {
+        x = floor(pos.x),
+        y = pos.y + 0.01,
+        z = floor(pos.z)
+    }
+    pos.y = pos.y + 0.01
     if last_move
     and last_move.pos then
         local last_call = minetest.get_position_from_hash(last_move.pos)
@@ -193,36 +200,44 @@ function creatura.get_next_move(self, pos2)
         vec_add(pos, {x = 0, y = 0, z = -1}),
         vec_add(pos, {x = 1, y = 0, z = -1})
     }
-    local next
+    local _next
     table.sort(neighbors, function(a, b)
         return vec_dist(a, pos2) < vec_dist(b, pos2)
     end)
     for i = 1, #neighbors do
         local neighbor = neighbors[i]
-        local can_move = fast_ray_sight({x = pos.x, y = neighbor.y, z = pos.z}, neighbor)
+        local can_move = fast_ray_sight(pos, neighbor)
         if vector.equals(neighbor, pos2) then
             can_move = true
         end
-        if not self:is_pos_safe(vec_raise(neighbor, 0.6)) then
+        if can_move
+        and not moveable(neighbor, width, height) then
             can_move = false
+            if moveable(vec_raise(neighbor, 0.5), width, height) then
+                can_move = true
+            end
         end
         if can_move
-        and not moveable(vec_raise(neighbor, 0.6), width, height) then
+        and not self:is_pos_safe(neighbor) then
             can_move = false
         end
-        local dist = vec_dist(neighbor, pos2)
         if can_move then
-            next = neighbor
+            _next = vec_raise(neighbor, 0.1)
             break
         end
     end
-    if next then
+    if _next then
         self._movement_data.last_move = {
             pos = minetest.hash_node_position(pos),
-            move = minetest.hash_node_position(next)
+            move = minetest.hash_node_position(_next)
+        }
+        _next = {
+            x = floor(_next.x),
+            y = _next.y,
+            z = floor(_next.z)
         }
     end
-    return next
+    return _next
 end
 
 function creatura.get_next_move_3d(self, pos2)
@@ -371,8 +386,42 @@ function creatura.get_nearby_entities(self, name)
 	return nearby
 end
 
-function creatura.get_node_def(pos)
-    local def = minetest.registered_nodes[minetest.get_node(pos).name]
+local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
+
+function minetest.get_node_height_from_def(name)
+	local def = minetest.registered_nodes[name]
+	if not def then return 0.5 end
+	if def.walkable then
+		if def.drawtype == "nodebox" then
+			if def.node_box
+            and def.node_box.type == "fixed" then
+				if type(def.node_box.fixed[1]) == "number" then
+					return 0.5 + def.node_box.fixed[5]
+				elseif type(def.node_box.fixed[1]) == "table" then
+					return 0.5 + def.node_box.fixed[1][5]
+				else
+					return 1
+				end
+			else
+				return 1
+			end
+		else
+			return 1
+		end
+	else
+		return 1
+	end
+end
+
+function creatura.get_node_def(node) -- Node can be name or pos
+    if type(node) == "table" then
+        node = minetest.get_node(node).name
+    end
+    local def = minetest.registered_nodes[node] or default_node_def
+    if def.walkable
+    and minetest.get_node_height_from_def(node) < 0.26 then
+        def.walkable = false -- workaround for nodes like snow
+    end
     return def
 end
 

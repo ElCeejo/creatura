@@ -35,6 +35,17 @@ local vec_dist = vector.distance
 local vec_multi = vector.multiply
 local vec_add = vector.add
 local yaw2dir = minetest.yaw_to_dir
+local dir2yaw = minetest.dir_to_yaw
+
+local function debugpart(pos, time, tex)
+    minetest.add_particle({
+        pos = pos,
+        texture = tex or "creatura_particle_red.png",
+        expirationtime = time or 3,
+        glow = 6,
+        size = 12
+    })
+end
 
 -------------
 -- Actions --
@@ -132,154 +143,137 @@ end
 
 -- Pathfinding
 
-function get_line_of_sight(a, b)
-    local steps = floor(vector.distance(a, b))
-    local line = {}
-
-    for i = 0, steps do
-        local pos
-
-        if steps > 0 then
-            pos = {
-                x = a.x + (b.x - a.x) * (i / steps),
-                y = a.y + (b.y - a.y) * (i / steps),
-                z = a.z + (b.z - a.z) * (i / steps)
-            }
-        else
-            pos = a
-        end
-        table.insert(line, pos)
-    end
-
-    if #line < 1 then
-        return false
-    else
-        for i = 1, #line do
-            local node = minetest.get_node(line[i])
-            if minetest.registered_nodes[node.name].walkable then
-                return false
-            end
-        end
-    end
-    return true
-end
-
-local function movement_theta_pathfind(self, pos2, speed)
+creatura.register_movement_method("creatura:pathfind", function(self, pos2)
+    -- Movement Data
     local pos = self.object:get_pos()
-    local goal = pos2
-    self._path = self._path or {}
-    local temp_goal = self._movement_data.temp_goal
-    if not temp_goal
-    or self:pos_in_box({x = temp_goal.x, y = pos.y + self.height * 0.5, z = temp_goal.z}) then
-        self._movement_data.temp_goal = creatura.get_next_move(self, pos2)
-        temp_goal = self._movement_data.temp_goal
-    end
-    if #self._path < 1 then
-        self._path = creatura.find_theta_path(self, self.object:get_pos(), pos2, self.width, self.height, 500) or {}
+    local movement_data = self._movement_data
+    local waypoint = movement_data.waypoint
+    local speed = movement_data.speed or 5
+    local path = self._path
+    if not path or #path < 2 then
+        self._path = creatura.find_path(self, pos, pos2, self.width, self.height, 200) or {}
     else
-        temp_goal = self._path[2] or self._path[1]
-        if self:pos_in_box({x = temp_goal.x, y = pos.y + self.height * 0.5, z = temp_goal.z}) then
+        waypoint = self._path[2]
+        if self:pos_in_box({x = waypoint.x, y = pos.y + self.height * 0.5, z = waypoint.z}) then
+            -- Waypoint Y axis is raised to avoid large mobs spinning over downward slopes
             table.remove(self._path, 1)
         end
     end
-    goal.y = pos.y + 0.5
-    local dir = vector.direction(self.object:get_pos(), pos2)
-    local tyaw = minetest.dir_to_yaw(dir)
-    local turn_rate = self.turn_rate or 10
-    if temp_goal then
-        dir = vector.direction(self.object:get_pos(), temp_goal)
-        tyaw = minetest.dir_to_yaw(dir)
-        if #self._path < 1
-        and not self:is_pos_safe(temp_goal) then
-            self:animate("walk")
-            self:set_forward_velocity(0)
-            self:halt()
-            return
-        end
+    if not waypoint
+    or self:pos_in_box({x = waypoint.x, y = pos.y + self.height * 0.5, z = waypoint.z}) then
+        waypoint = creatura.get_next_move(self, pos2)
+        self._movement_data.waypoint = waypoint
     end
-    self:turn_to(tyaw, turn_rate)
-    self:animate("walk")
+    -- Turning
+    local dir2waypoint = vec_dir(pos, pos2)
+    if waypoint then
+        dir2waypoint = vec_dir(pos, waypoint)
+    end
+    local yaw = self.object:get_yaw()
+    local tgt_yaw = dir2yaw(dir2waypoint)
+    local turn_rate = abs(self.turn_rate) or 5
+    local yaw_diff = abs(diff(yaw, tgt_yaw))
+    -- Moving
     self:set_gravity(-9.8)
-    self:set_forward_velocity(speed or 2)
-    if self:pos_in_box(goal) then
-        self:halt()
-    end
-end
-
-creatura.register_movement_method("creatura:theta_pathfind", movement_theta_pathfind)
-
-local function movement_pathfind(self, pos2, speed)
-    local pos = self.object:get_pos()
-    local goal = pos2
-    local temp_goal = self._movement_data.temp_goal
-    self._path = self._path or {}
-    if (not temp_goal
-    or self:pos_in_box({x = temp_goal.x, y = pos.y + self.height * 0.5, z = temp_goal.z}))
-    and #self._path < 1 then
-        self._movement_data.temp_goal = creatura.get_next_move(self, pos2)
-        temp_goal = self._movement_data.temp_goal
-    end
-    if #self._path < 2 then
-        self._path = creatura.find_path(self, self.object:get_pos(), pos2, self.width, self.height, 100) or {}
+    if yaw_diff < pi * (turn_rate * 0.1) then
+        self:animate(movement_data.anim or "walk")
+        self:set_forward_velocity(speed)
     else
-        temp_goal = self._path[2]
-        if self:pos_in_box({x = temp_goal.x, y = pos.y + self.height * 0.5, z = temp_goal.z}) then
-            table.remove(self._path, 1)
-        end
+        self:set_forward_velocity(speed * 0.5)
+        turn_rate = turn_rate * 1.5
     end
-    goal.y = pos.y + 0.5
-    local dir = vector.direction(self.object:get_pos(), pos2)
-    local tyaw = minetest.dir_to_yaw(dir)
-    local turn_rate = self.turn_rate or 10
-    if temp_goal then
-        dir = vector.direction(self.object:get_pos(), temp_goal)
-        tyaw = minetest.dir_to_yaw(dir)
-        if #self._path < 2
-        and not self:is_pos_safe(temp_goal) then
-            self:animate("walk")
-            self:set_forward_velocity(0)
-            self:halt()
-            return
-        end
-    end
-    self:turn_to(tyaw, turn_rate)
-    self:animate("walk")
-    self:set_gravity(-9.8)
-    self:set_forward_velocity(speed or 2)
+    self:turn_to(tgt_yaw, turn_rate)
     if self:pos_in_box(pos2) then
         self:halt()
     end
-end
+end)
 
-creatura.register_movement_method("creatura:pathfind", movement_pathfind)
+creatura.register_movement_method("creatura:theta_pathfind", function(self, pos2)
+    -- Movement Data
+    local pos = self.object:get_pos()
+    local movement_data = self._movement_data
+    local waypoint = movement_data.waypoint
+    local speed = movement_data.speed or 5
+    local path = self._path
+    if not path or #path < 1 then
+        self._path = creatura.find_theta_path(self, pos, pos2, self.width, self.height, 300) or {}
+    else
+        waypoint = self._path[2] or self._path[1]
+        if self:pos_in_box({x = waypoint.x, y = pos.y + self.height * 0.5, z = waypoint.z}) then
+            -- Waypoint Y axis is raised to avoid large mobs spinning over downward slopes
+            table.remove(self._path, 1)
+        end
+    end
+    if not waypoint
+    or self:pos_in_box({x = waypoint.x, y = pos.y + self.height * 0.5, z = waypoint.z}) then
+        waypoint = creatura.get_next_move(self, pos2)
+        self._movement_data.waypoint = waypoint
+    end
+    -- Turning
+    local dir2waypoint = vec_dir(pos, pos2)
+    if waypoint then
+        dir2waypoint = vec_dir(pos, waypoint)
+    end
+    local yaw = self.object:get_yaw()
+    local tgt_yaw = dir2yaw(dir2waypoint)
+    local turn_rate = abs(self.turn_rate) or 5
+    local yaw_diff = abs(diff(yaw, tgt_yaw))
+    -- Moving
+    self:set_gravity(-9.8)
+    if yaw_diff < pi * (turn_rate * 0.1) then
+        self:animate(movement_data.anim or "walk")
+        self:set_forward_velocity(speed)
+    else
+        self:set_forward_velocity(speed * 0.5)
+        turn_rate = turn_rate * 1.5
+    end
+    self:turn_to(tgt_yaw, turn_rate)
+    if self:pos_in_box(pos2) then
+        self:halt()
+    end
+end)
+
+-- Neighbors
+
+creatura.register_movement_method("creatura:neighbors", function(self, pos2)
+    -- Movement Data
+    local pos = self.object:get_pos()
+    local movement_data = self._movement_data
+    local waypoint = movement_data.waypoint
+    local speed = movement_data.speed or 5
+    if not waypoint
+    or self:pos_in_box({x = waypoint.x, y = pos.y + self.height * 0.5, z = waypoint.z}, clamp(self.width, 0.5, 1)) then
+        -- Waypoint Y axis is raised to avoid large mobs spinning over downward slopes
+        waypoint = creatura.get_next_move(self, pos2)
+        self._movement_data.waypoint = waypoint
+    end
+    -- Turning
+    local dir2waypoint = vec_dir(pos, pos2)
+    if waypoint then
+        dir2waypoint = vec_dir(pos, waypoint)
+    end
+    local yaw = self.object:get_yaw()
+    local tgt_yaw = dir2yaw(dir2waypoint)
+    local turn_rate = self.turn_rate or 5
+    local yaw_diff = abs(diff(yaw, tgt_yaw))
+    -- Moving
+    self:set_gravity(-9.8)
+    if yaw_diff < pi * 0.25 then
+        self:animate(movement_data.anim or "walk")
+        self:set_forward_velocity(speed)
+    else
+        self:set_forward_velocity(speed * 0.5)
+        turn_rate = turn_rate * 1.5
+    end
+    self:turn_to(tgt_yaw, turn_rate)
+    if self:pos_in_box(pos2) then
+        self:halt()
+    end
+end)
 
 -- Obstacle Avoidance
 
-local function moveable(pos, width, height)
-    local pos1 = {
-        x = pos.x - (width + 0.2),
-        y = pos.y,
-        z = pos.z - (width + 0.2),
-    }
-    local pos2 = {
-        x = pos.x + (width + 0.2),
-        y = pos.y,
-        z = pos.z + (width + 0.2),
-    }
-    for z = pos1.z, pos2.z do
-        for x = pos1.x, pos2.x do
-            local pos3 = {x = x, y = (pos.y + height), z = z}
-            local pos4 = {x = x, y = pos.y, z = z}
-            local ray = minetest.raycast(pos3, pos4, false, false)
-            for pointed_thing in ray do
-                if pointed_thing.type == "node" then
-                    return false
-                end
-            end
-        end
-    end
-    return true
-end
+local moveable = creatura.is_pos_moveable
 
 local function get_obstacle_avoidance(self, pos2)
     local pos = self.object:get_pos()
@@ -309,78 +303,38 @@ local function get_obstacle_avoidance(self, pos2)
     return pos2
 end
 
-local function movement_obstacle_avoidance(self, pos2, speed)
+creatura.register_movement_method("creatura:obstacle_avoidance", function(self, pos2)
+    -- Movement Data
     local pos = self.object:get_pos()
-    local temp_goal = self._movement_data.temp_goal
-    if not temp_goal
-    or self:pos_in_box(temp_goal) then
-        self._movement_data.temp_goal = get_obstacle_avoidance(self, pos2)
-        temp_goal = self._movement_data.temp_goal
-        if temp_goal then
-            temp_goal.y = floor(pos.y + self.height * 0.5)
-        end
+    local movement_data = self._movement_data
+    local waypoint = movement_data.waypoint
+    local speed = movement_data.speed or 5
+    if not waypoint
+    or self:pos_in_box({x = waypoint.x, y = pos.y + self.height * 0.5, z = waypoint.z}, clamp(self.width, 0.5, 1)) then
+        -- Waypoint Y axis is raised to avoid large mobs spinning over downward slopes
+        waypoint = get_obstacle_avoidance(self, pos2)
+        self._movement_data.waypoint = waypoint
     end
-    pos2.y = floor(pos2.y + 0.5)
-    local dir = vector.direction(pos, pos2)
-    local tyaw = minetest.dir_to_yaw(dir)
-    local turn_rate = self.turn_rate or 10
-    if temp_goal then
-        dir = vector.direction(pos, temp_goal)
-        tyaw = minetest.dir_to_yaw(dir)
+    -- Turning
+    local dir2waypoint = vec_dir(pos, pos2)
+    if waypoint then
+        dir2waypoint = vec_dir(pos, waypoint)
     end
-    local turn_diff = abs(diff(self.object:get_yaw(), tyaw))
-    self:turn_to(tyaw, turn_rate)
-    self:animate("walk")
-    self:set_gravity(-9.8)
-    self:set_forward_velocity(speed - clamp(turn_diff, 0, speed * 0.66))
-    if self:pos_in_box({x = pos2.x, y = pos.y + 0.1, z = pos2.z})
-    or (temp_goal
-    and not self:is_pos_safe(temp_goal)) then
-        self:halt()
-    end
-end
-
-creatura.register_movement_method("creatura:obstacle_avoidance", movement_obstacle_avoidance)
-
--- Neighbors
-
-local function movement_neighbors(self, pos2, speed)
-    local pos = self.object:get_pos()
-    local temp_goal = self._movement_data.temp_goal
-    local width = clamp(self.width, 0.5, 1.5)
-    if not temp_goal
-    or self:pos_in_box(temp_goal) then
-        self._movement_data.temp_goal = creatura.get_next_move(self, pos2)
-        temp_goal = self._movement_data.temp_goal
-    end
-    pos2.y = pos.y + self.height * 0.5
     local yaw = self.object:get_yaw()
-    local dir = vector.direction(self.object:get_pos(), pos2)
-    local tyaw = minetest.dir_to_yaw(dir)
-    local turn_rate = self.turn_rate or 10
-    if temp_goal then
-        temp_goal.x = math.floor(temp_goal.x + 0.5)
-        temp_goal.z = math.floor(temp_goal.z + 0.5)
-        temp_goal.y = pos.y + self.height * 0.5
-        dir = vector.direction(self.object:get_pos(), temp_goal)
-        tyaw = minetest.dir_to_yaw(dir)
-        if not self:is_pos_safe(temp_goal) then
-            self:set_forward_velocity(0)
-            self:halt()
-            return
-        end
-    end
-    local yaw_diff = abs(diff(yaw, tyaw))
-    self:turn_to(tyaw, turn_rate)
+    local tgt_yaw = dir2yaw(dir2waypoint)
+    local turn_rate = self.turn_rate or 5
+    local yaw_diff = abs(diff(yaw, tgt_yaw))
+    -- Moving
     self:set_gravity(-9.8)
-    if yaw_diff < pi then
-        self:animate("walk")
+    if yaw_diff < pi * 0.25 then
+        self:animate(movement_data.anim or "walk")
         self:set_forward_velocity(speed)
+    else
+        self:set_forward_velocity(speed * 0.5)
+        turn_rate = turn_rate * 1.5
     end
+    self:turn_to(tgt_yaw, turn_rate)
     if self:pos_in_box(pos2) then
         self:halt()
     end
-end
-
-creatura.register_movement_method("creatura:neighbors", movement_neighbors)
-
+end)

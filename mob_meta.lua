@@ -38,16 +38,6 @@ local function vec_raise(v, n)
     return {x = v.x, y = v.y + n, z = v.z}
 end
 
-local function vec_compress(v)
-    return {x = round(v.x, 2), y = round(v.y, 2), z = round(v.z, 2)}
-end
-
-local function dist_2d(pos1, pos2)
-    local a = vector.new(pos1.x, 0, pos1.z)
-    local b = vector.new(pos2.x, 0, pos2.z)
-    return vec_dist(a, b)
-end
-
 local function fast_ray_sight(pos1, pos2)
     local ray = minetest.raycast(pos1, pos2, false, false)
     for pointed_thing in ray do
@@ -1242,6 +1232,17 @@ function creatura.register_mob(name, def)
     def.static_save = true
     def.collisionbox = hitbox
     def._creatura_mob = true
+
+    def.sounds = def.sounds or {}
+
+    if not def.sounds.hit then
+        def.sounds.hit = {
+            name = "creatura_hit",
+            gain = 0.5,
+            distance = 16,
+			variations = 3
+        }
+    end
 
     def.on_activate = function(self, staticdata, dtime)
 		return self:activate(staticdata, dtime)

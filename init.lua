@@ -2,8 +2,8 @@ creatura = {}
 
 local path = minetest.get_modpath("creatura")
 
-dofile(path.."/pathfinder.lua")
 dofile(path.."/api.lua")
+dofile(path.."/pathfinder.lua")
 dofile(path.."/methods.lua")
 
 -- Optional Files --
