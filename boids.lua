@@ -116,7 +116,7 @@ function creatura.get_boid_angle(self, boid, range) -- calculates boid angle bas
             local boid_yaw = boid:get_yaw()
             table.insert(positions, boid_pos)
             if boid ~= self.object then
-                table.insert(lifts, boid:get_velocity().y)
+                table.insert(lifts, vec_normal(boid:get_velocity()).y)
                 table.insert(angles, boid:get_yaw())
                 if not closest_pos
                 or vec_dist(pos, boid_pos) < vec_dist(pos, closest_pos) then
@@ -132,13 +132,13 @@ function creatura.get_boid_angle(self, boid, range) -- calculates boid angle bas
     local alignment = average_angle(angles)
     center = vec_add(center, yaw2dir(alignment))
     local dir2center = vec_dir(pos, center)
-    local seperation = dir2yaw(vector.multiply(dir2center, -1))
+    local seperation = yaw + -(dir2yaw(dir2closest) - yaw)
     local cohesion = dir2yaw(dir2center)
     local params = {alignment}
     if self.boid_heading then
         table.insert(params, yaw + self.boid_heading)
     end
-    if dist_2d(pos, closest_pos) < (self.boid_seperation or self.width * 3) then -- seperation is causing north issue
+    if dist_2d(pos, closest_pos) < (self.boid_seperation or self.width * 3) then
         table.insert(params, seperation)
     elseif dist_2d(pos, center) > (#boids * 0.33) * (self.boid_seperation or self.width * 3) then
         table.insert(params, cohesion)

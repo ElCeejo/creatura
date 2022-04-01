@@ -92,11 +92,6 @@ local function is_under_solid(pos)
     return (walkable(pos2) or ((get_node_height(pos2) or 0) < 1.5))
 end
 
-local function is_node_walkable(name)
-    local def = minetest.registered_nodes[name]
-    return def and def.walkable
-end
-
 local function is_value_in_table(tbl, val)
     for _, v in pairs(tbl) do
         if v == val then

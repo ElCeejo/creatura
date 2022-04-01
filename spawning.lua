@@ -82,6 +82,15 @@ function creatura.register_mob_spawn(name, def)
     creatura.registered_mob_spawns[name] = spawn
 end
 
+creatura.registered_on_spawns = {}
+
+function creatura.register_on_spawn(name, func)
+    if not creatura.registered_on_spawns[name] then
+        creatura.registered_on_spawns[name] = {}
+    end
+    table.insert(creatura.registered_on_spawns[name], func)
+end
+
 
 -- Utility Functions --
 
@@ -187,11 +196,11 @@ function execute_spawns(player)
                 return
             end
 
-            local light_pos = spawn_pos
             if not spawn.spawn_in_nodes then
-              light_pos = vec_raise(spawn_pos, 1)
+                spawn_pos = vec_raise(spawn_pos, 1)
             end
-            local light = minetest.get_node_light(light_pos) or 7
+
+            local light = minetest.get_node_light(spawn_pos) or 7
 
             if light > spawn.max_light
             or light < spawn.min_light then
@@ -257,18 +266,27 @@ minetest.register_abm({
         local meta = minetest.get_meta(pos)
         local name = meta:get_string("mob")
         local amount = meta:get_int("cluster")
+        local obj
         if amount > 0 then
             for i = 1, amount do
-                minetest.add_entity(pos, name)
+                obj = minetest.add_entity(pos, name)
             end
         else
-            minetest.add_entity(pos, name)
+            obj = minetest.add_entity(pos, name)
         end
         minetest.remove_node(pos)
+        if obj
+        and creatura.registered_on_spawns[name]
+        and #creatura.registered_on_spawns[name] > 0 then
+            for i = 1, #creatura.registered_on_spawns[name] do
+                local func = creatura.registered_on_spawns[name][i]
+                func(obj:get_luaentity(), pos)
+            end
+        end
     end,
 })
 
-minetest.register_lbm({
+--[[minetest.register_lbm({
     name = "creatura:spawning",
     nodenames = {"creatura:spawn_node"},
     run_at_every_load = true,
@@ -276,13 +294,22 @@ minetest.register_lbm({
         local meta = minetest.get_meta(pos)
         local name = meta:get_string("mob")
         local amount = meta:get_int("cluster")
+        local obj
         if amount > 0 then
             for i = 1, amount do
-                minetest.add_entity(pos, name)
+                obj = minetest.add_entity(pos, name)
             end
         else
-            minetest.add_entity(pos, name)
+            obj = minetest.add_entity(pos, name)
         end
         minetest.remove_node(pos)
+        if obj
+        and creatura.registered_on_spawns[name]
+        and #creatura.registered_on_spawns[name] > 0 then
+            for i = 1, #creatura.registered_on_spawns[name] do
+                local func = creatura.registered_on_spawns[name][i]
+                func(obj:get_luaentity(), pos)
+            end
+        end
     end,
-})
+})]]

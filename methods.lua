@@ -171,7 +171,7 @@ creatura.register_movement_method("creatura:pathfind", function(self, pos2)
     end
     local yaw = self.object:get_yaw()
     local tgt_yaw = dir2yaw(dir2waypoint)
-    local turn_rate = abs(self.turn_rate) or 5
+    local turn_rate = abs(self.turn_rate or 5)
     local yaw_diff = abs(diff(yaw, tgt_yaw))
     -- Moving
     self:set_gravity(-9.8)
@@ -183,7 +183,9 @@ creatura.register_movement_method("creatura:pathfind", function(self, pos2)
         turn_rate = turn_rate * 1.5
     end
     self:turn_to(tgt_yaw, turn_rate)
-    if self:pos_in_box(pos2) then
+    if self:pos_in_box(pos2)
+    or (waypoint
+    and not self:is_pos_safe(waypoint)) then
         self:halt()
     end
 end)
@@ -216,7 +218,7 @@ creatura.register_movement_method("creatura:theta_pathfind", function(self, pos2
     end
     local yaw = self.object:get_yaw()
     local tgt_yaw = dir2yaw(dir2waypoint)
-    local turn_rate = abs(self.turn_rate) or 5
+    local turn_rate = abs(self.turn_rate or 5)
     local yaw_diff = abs(diff(yaw, tgt_yaw))
     -- Moving
     self:set_gravity(-9.8)
@@ -228,7 +230,9 @@ creatura.register_movement_method("creatura:theta_pathfind", function(self, pos2
         turn_rate = turn_rate * 1.5
     end
     self:turn_to(tgt_yaw, turn_rate)
-    if self:pos_in_box(pos2) then
+    if self:pos_in_box(pos2)
+    or (waypoint
+    and not self:is_pos_safe(waypoint)) then
         self:halt()
     end
 end)
@@ -254,7 +258,7 @@ creatura.register_movement_method("creatura:neighbors", function(self, pos2)
     end
     local yaw = self.object:get_yaw()
     local tgt_yaw = dir2yaw(dir2waypoint)
-    local turn_rate = self.turn_rate or 5
+    local turn_rate = abs(self.turn_rate or 5)
     local yaw_diff = abs(diff(yaw, tgt_yaw))
     -- Moving
     self:set_gravity(-9.8)
@@ -266,7 +270,9 @@ creatura.register_movement_method("creatura:neighbors", function(self, pos2)
         turn_rate = turn_rate * 1.5
     end
     self:turn_to(tgt_yaw, turn_rate)
-    if self:pos_in_box(pos2) then
+    if self:pos_in_box(pos2)
+    or (waypoint
+    and not self:is_pos_safe(waypoint)) then
         self:halt()
     end
 end)
@@ -322,7 +328,7 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self, 
     end
     local yaw = self.object:get_yaw()
     local tgt_yaw = dir2yaw(dir2waypoint)
-    local turn_rate = self.turn_rate or 5
+    local turn_rate = abs(self.turn_rate or 5)
     local yaw_diff = abs(diff(yaw, tgt_yaw))
     -- Moving
     self:set_gravity(-9.8)
@@ -334,7 +340,9 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self, 
         turn_rate = turn_rate * 1.5
     end
     self:turn_to(tgt_yaw, turn_rate)
-    if self:pos_in_box(pos2) then
+    if self:pos_in_box(pos2)
+    or (waypoint
+    and not self:is_pos_safe(waypoint)) then
         self:halt()
     end
 end)

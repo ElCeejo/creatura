@@ -407,7 +407,6 @@ end
 
 function mob:get_wander_pos_3d(min_range, max_range, dir, vert_bias)
     local pos = vec_center(self.object:get_pos())
-    pos.y = floor(pos.y + 0.5)
     local node = minetest.get_node(pos)
     if get_node_def(node.name).walkable then -- Occurs if small mob is touching a fence
         local offset = vector.add(pos, vec_multi(vec_dir(pos, self.object:get_pos()), 1.5))
@@ -443,10 +442,7 @@ function mob:get_wander_pos_3d(min_range, max_range, dir, vert_bias)
     for i = 1, outset do
         local a_pos = vec_add(pos2, vec_multi(move_dir, i))
         local a_node = minetest.get_node(a_pos)
-        local b_pos = {x = a_pos.x, y = a_pos.y - 1, z = a_pos.z}
-        local b_node = minetest.get_node(b_pos)
-        if get_node_def(a_node.name).walkable
-        or not get_node_def(b_node.name).walkable then
+        if get_node_def(a_node.name).walkable then
             a_pos = get_ground_level(a_pos, floor(self.stepheight or 1))
         end
         if not get_node_def(a_node.name).walkable then
@@ -463,7 +459,8 @@ function mob:is_pos_safe(pos)
     local node = minetest.get_node(pos)
     if not node then return false end
     if minetest.get_item_group(node.name, "igniter") > 0
-    or get_node_def(node.name).drawtype == "liquid" then return false end
+    or get_node_def(node.name).drawtype == "liquid"
+    or get_node_def(minetest.get_node(vec_raise(pos, -1)).name).drawtype == "liquid" then return false end
     local fall_safe = false
     if self.max_fall ~= 0 then
         for i = 1, self.max_fall or 3 do
@@ -681,6 +678,7 @@ function mob:set_utility(func)
 end
 
 function mob:get_utility()
+    if not self._utility_data then return end
     return self._utility_data.utility
 end
 
