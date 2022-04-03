@@ -123,6 +123,45 @@ end
 
 -- Sensors --
 
+local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
+
+function minetest.get_node_height_from_def(name)
+	local def = minetest.registered_nodes[name]
+	if not def then return 0.5 end
+	if def.walkable then
+		if def.drawtype == "nodebox" then
+			if def.node_box
+            and def.node_box.type == "fixed" then
+				if type(def.node_box.fixed[1]) == "number" then
+					return 0.5 + def.node_box.fixed[5]
+				elseif type(def.node_box.fixed[1]) == "table" then
+					return 0.5 + def.node_box.fixed[1][5]
+				else
+					return 1
+				end
+			else
+				return 1
+			end
+		else
+			return 1
+		end
+	else
+		return 1
+	end
+end
+
+function creatura.get_node_def(node) -- Node can be name or pos
+    if type(node) == "table" then
+        node = minetest.get_node(node).name
+    end
+    local def = minetest.registered_nodes[node] or default_node_def
+    if def.walkable
+    and minetest.get_node_height_from_def(node) < 0.26 then
+        def.walkable = false -- workaround for nodes like snow
+    end
+    return def
+end
+
 function creatura.is_pos_moveable(pos, width, height)
     local pos1 = {
         x = pos.x - (width + 0.2),
@@ -142,7 +181,7 @@ function creatura.is_pos_moveable(pos, width, height)
             for pointed_thing in ray do
                 if pointed_thing.type == "node" then
                     local name = minetest.get_node(pointed_thing.under).name
-                    if minetest.registered_nodes[name].walkable then
+                    if creatura.get_node_def(name).walkable then
                         return false
                     end
                 end
@@ -379,45 +418,6 @@ function creatura.get_nearby_entities(self, name)
         end
 	end
 	return nearby
-end
-
-local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
-
-function minetest.get_node_height_from_def(name)
-	local def = minetest.registered_nodes[name]
-	if not def then return 0.5 end
-	if def.walkable then
-		if def.drawtype == "nodebox" then
-			if def.node_box
-            and def.node_box.type == "fixed" then
-				if type(def.node_box.fixed[1]) == "number" then
-					return 0.5 + def.node_box.fixed[5]
-				elseif type(def.node_box.fixed[1]) == "table" then
-					return 0.5 + def.node_box.fixed[1][5]
-				else
-					return 1
-				end
-			else
-				return 1
-			end
-		else
-			return 1
-		end
-	else
-		return 1
-	end
-end
-
-function creatura.get_node_def(node) -- Node can be name or pos
-    if type(node) == "table" then
-        node = minetest.get_node(node).name
-    end
-    local def = minetest.registered_nodes[node] or default_node_def
-    if def.walkable
-    and minetest.get_node_height_from_def(node) < 0.26 then
-        def.walkable = false -- workaround for nodes like snow
-    end
-    return def
 end
 
 --------------------
