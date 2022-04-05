@@ -28,12 +28,12 @@ local function get_ground_level(pos2, max_height)
         z = pos2.z
     })
     local height = 0
-    local walkable = is_node_walkable(node_under.name) and not is_node_walkable(node.name)
+    local walkable = creatura.get_node_def(node_under.name).walkable and not creatura.get_node_def(node.name).walkable
     if walkable then
         return pos2
     elseif not walkable then
-        if not is_node_walkable(node_under.name) then
-            while not is_node_walkable(node_under.name)
+        if not creatura.get_node_def(node_under.name).walkable then
+            while not creatura.get_node_def(node_under.name).walkable
             and height < max_height do
                 pos2.y = pos2.y - 1
                 node_under = minetest.get_node({
@@ -44,7 +44,7 @@ local function get_ground_level(pos2, max_height)
                 height = height + 1
             end
         else
-            while is_node_walkable(node.name)
+            while creatura.get_node_def(node.name).walkable
             and height < max_height do
                 pos2.y = pos2.y + 1
                 node = minetest.get_node(pos2)
@@ -342,7 +342,7 @@ function get_line_of_sight(a, b)
     else
         for i = 1, #line do
             local node = minetest.get_node(line[i])
-            if minetest.registered_nodes[node.name].walkable then
+            if creatura.get_node_def(node.name).walkable then
                 return false
             end
         end
