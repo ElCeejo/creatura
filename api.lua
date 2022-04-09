@@ -54,44 +54,6 @@ end
 -- Local API --
 ---------------
 
-local function get_node_height(pos)
-    local node = minetest.get_node(pos)
-	local def = minetest.registered_nodes[node.name]
-	if not def then return nil end
-	if def.walkable then
-		if def.drawtype == "nodebox" then
-			if def.node_box
-            and def.node_box.type == "fixed" then
-				if type(def.node_box.fixed[1]) == "number" then
-					return pos.y + node.node_box.fixed[5]
-				elseif type(node.node_box.fixed[1]) == "table" then
-					return pos.y + node.node_box.fixed[1][5]
-				else
-					return pos.y + 0.5
-				end
-			elseif node.node_box
-            and node.node_box.type == 'leveled' then
-				return minetest.get_node_level(pos) / 64 - 0.5 + pos.y
-			else
-				return pos.y + 0.5
-			end
-		else
-			return pos.y + 0.5
-		end
-	else
-		return pos.y - 0.5
-	end
-end
-
-local function walkable(pos)
-    return minetest.registered_nodes[minetest.get_node(pos).name].walkable
-end
-
-local function is_under_solid(pos)
-    local pos2 = vector.new(pos.x, pos.y + 1, pos.z)
-    return (walkable(pos2) or ((get_node_height(pos2) or 0) < 1.5))
-end
-
 local function is_value_in_table(tbl, val)
     for _, v in pairs(tbl) do
         if v == val then
@@ -125,8 +87,8 @@ end
 
 local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
 
-function minetest.get_node_height_from_def(name)
-	local def = minetest.registered_nodes[name]
+function creatura.get_node_height_from_def(name)
+	local def = minetest.registered_nodes[name] or default_node_def
 	if not def then return 0.5 end
 	if def.walkable then
 		if def.drawtype == "nodebox" then
@@ -150,13 +112,17 @@ function minetest.get_node_height_from_def(name)
 	end
 end
 
+minetest.after(1, function()
+    minetest.chat_send_all(creatura.get_node_height_from_def("default:snow"))
+end)
+
 function creatura.get_node_def(node) -- Node can be name or pos
     if type(node) == "table" then
         node = minetest.get_node(node).name
     end
     local def = minetest.registered_nodes[node] or default_node_def
     if def.walkable
-    and minetest.get_node_height_from_def(node) < 0.26 then
+    and creatura.get_node_height_from_def(node) < 0.26 then
         def.walkable = false -- workaround for nodes like snow
     end
     return def

@@ -873,6 +873,8 @@ end
 
 -- Physics
 
+local moveable = creatura.is_pos_moveable
+
 local function do_step(self)
     if not fancy_step then return end
     local pos = self.object:get_pos()
@@ -916,8 +918,8 @@ local function collision_detection(self)
     for i = 2, #objects do
         local object = objects[i]
         if creatura.is_alive(object)
-        and (not object:get_attach()
-        or object:get_attach() ~= self.object) then
+        and not self.object:get_attach()
+        and not object:get_attach() then
             if i > 5 then break end
             local pos2 = object:get_pos()
             local dir = vec_dir(pos, pos2)
