@@ -112,10 +112,6 @@ function creatura.get_node_height_from_def(name)
 	end
 end
 
-minetest.after(1, function()
-    minetest.chat_send_all(creatura.get_node_height_from_def("default:snow"))
-end)
-
 function creatura.get_node_def(node) -- Node can be name or pos
     if type(node) == "table" then
         node = minetest.get_node(node).name
