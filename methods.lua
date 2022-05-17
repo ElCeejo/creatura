@@ -215,12 +215,12 @@ creatura.register_movement_method("creatura:pathfind", function(self, pos2)
     -- Moving
     self:set_gravity(-9.8)
     if yaw_diff < pi * (turn_rate * 0.1) then
-        self:animate(movement_data.anim or "walk")
         self:set_forward_velocity(speed)
     else
         self:set_forward_velocity(speed * 0.5)
         turn_rate = turn_rate * 1.5
     end
+    self:animate(movement_data.anim or "walk")
     self:turn_to(tgt_yaw, turn_rate)
     if self:pos_in_box(pos2)
     or (waypoint
@@ -262,12 +262,12 @@ creatura.register_movement_method("creatura:theta_pathfind", function(self, pos2
     -- Moving
     self:set_gravity(-9.8)
     if yaw_diff < pi * (turn_rate * 0.1) then
-        self:animate(movement_data.anim or "walk")
         self:set_forward_velocity(speed)
     else
         self:set_forward_velocity(speed * 0.5)
         turn_rate = turn_rate * 1.5
     end
+    self:animate(movement_data.anim or "walk")
     self:turn_to(tgt_yaw, turn_rate)
     if self:pos_in_box(pos2)
     or (waypoint
@@ -302,12 +302,12 @@ creatura.register_movement_method("creatura:neighbors", function(self, pos2)
     -- Moving
     self:set_gravity(-9.8)
     if yaw_diff < pi * 0.25 then
-        self:animate(movement_data.anim or "walk")
         self:set_forward_velocity(speed)
     else
         self:set_forward_velocity(speed * 0.5)
         turn_rate = turn_rate * 1.5
     end
+    self:animate(movement_data.anim or "walk")
     self:turn_to(tgt_yaw, turn_rate)
     if self:pos_in_box(pos2)
     or (waypoint
@@ -325,20 +325,20 @@ local function get_obstacle_avoidance(self, goal)
     pos.y = pos.y + 1
     local yaw2goal = dir2yaw(vec_dir(pos, goal))
     local outset = vec_add(pos, vec_multi(yaw2dir(yaw2goal), width))
-    local collide, col_pos = get_collision(self, outset, yaw2goal)
+    local collide, col_pos = get_collision(self, yaw2goal)
     local avd_pos
     if collide then
         for i = 45, 180, 45 do
             angle = rad(i)
             dir = vec_multi(yaw2dir(yaw2goal + angle), width)
             avd_pos = vec_center(vec_add(pos, dir))
-            if not get_collision(self, avd_pos, yaw2goal) then
+            if not get_collision(self, yaw2goal) then
                 break
             end
             angle = -rad(i)
             dir = vec_multi(yaw2dir(yaw2goal + angle), width)
             avd_pos = vec_center(vec_add(pos, dir))
-            if not get_collision(self, avd_pos, yaw2goal) then
+            if not get_collision(self, yaw2goal) then
                 break
             end
         end
@@ -375,12 +375,12 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self, 
     -- Moving
     self:set_gravity(-9.8)
     if yaw_diff < pi * 0.25 then
-        self:animate(movement_data.anim or "walk")
         self:set_forward_velocity(speed)
     else
         self:set_forward_velocity(speed * 0.5)
         turn_rate = turn_rate * 1.5
     end
+    self:animate(movement_data.anim or "walk")
     self:turn_to(tgt_yaw, turn_rate)
     if self:pos_in_box(pos2)
     or (waypoint
