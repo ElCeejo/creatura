@@ -695,10 +695,19 @@ function mob:set_utility_score(n)
 end
 
 function mob:try_initiate_utility(utility, score, ...)
-	if self._utility_data and score >= self._utility_data.score then
+	if self._utility_data
+    and score >= self._utility_data.score then
 		self:initiate_utility(utility, ...)
 		self:set_utility_score(score)
 	end
+end
+
+function mob:clear_utility()
+    self._utility_data = {
+        utility = nil,
+        func = nil,
+        score = 0
+    }
 end
 
 -- Functions
