@@ -694,6 +694,13 @@ function mob:set_utility_score(n)
     self._utility_data.score = n or 0
 end
 
+function mob:try_initiate_utility(utility, score, ...)
+	if self._utility_data and score >= self._utility_data.score then
+		self:initiate_utility(utility, ...)
+		self:set_utility_score(score)
+	end
+end
+
 -- Functions
 
 function mob:activate(staticdata, dtime)
