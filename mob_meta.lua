@@ -1245,7 +1245,9 @@ function creatura.register_mob(name, def)
     def.collide_with_objects = def.collide_with_objects or false
     def.visual = "mesh"
     def.makes_footstep_sound = def.makes_footstep_sound or false
-    def.static_save = true
+    if def.static_save ~= false then
+        def.static_save = true
+    end
     def.collisionbox = hitbox
     def._creatura_mob = true
 
