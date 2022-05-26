@@ -124,6 +124,46 @@ function creatura.get_node_def(node) -- Node can be name or pos
     return def
 end
 
+function creatura.get_ground_level(pos2, max_diff)
+    local node = minetest.get_node(pos2)
+    local node_under = minetest.get_node({
+        x = pos2.x,
+        y = pos2.y - 1,
+        z = pos2.z
+    })
+    local walkable = creatura.get_node_def(node_under.name).walkable and not creatura.get_node_def(node.name).walkable
+    if walkable then
+        return pos2
+    end
+    local diff = 0
+    if not creatura.get_node_def(node_under.name).walkable then
+        for i = 1, max_diff do
+            pos2.y = pos2.y - 1
+            node = minetest.get_node(pos2)
+            node_under = minetest.get_node({
+                x = pos2.x,
+                y = pos2.y - 1,
+                z = pos2.z
+            })
+            walkable = creatura.get_node_def(node_under.name).walkable and not creatura.get_node_def(node.name).walkable
+            if walkable then break end
+        end
+    else
+        for i = 1, max_diff do
+            pos2.y = pos2.y + 1
+            node = minetest.get_node(pos2)
+            node_under = minetest.get_node({
+                x = pos2.x,
+                y = pos2.y - 1,
+                z = pos2.z
+            })
+            walkable = creatura.get_node_def(node_under.name).walkable and not creatura.get_node_def(node.name).walkable
+            if walkable then break end
+        end
+    end
+    return pos2
+end
+
 function creatura.is_pos_moveable(pos, width, height)
     local pos1 = {
         x = pos.x - (width + 0.2),
