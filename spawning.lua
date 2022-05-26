@@ -18,6 +18,8 @@ end)
 
 -- Math --
 
+local abs = math.abs
+local pi = math.pi
 local random = math.random
 
 local function vec_raise(v, n)
@@ -49,12 +51,12 @@ function creatura.register_spawn_egg(name, col1, col2, inventory_image) -- depre
 		stack_max = 99,
 		on_place = function(itemstack, _, pointed_thing)
 			local mobdef = minetest.registered_entities[name]
-			local spawn_offset = math.abs(mobdef.collisionbox[2])
+			local spawn_offset = abs(mobdef.collisionbox[2])
 			local pos = minetest.get_pointed_thing_position(pointed_thing, true)
 			pos.y = (pos.y - 0.49) + spawn_offset
 			local object = minetest.add_entity(pos, name)
 			if object then
-				object:set_yaw(math.random(1, 6))
+				object:set_yaw(random(1, 6))
 				object:get_luaentity().last_yaw = object:get_yaw()
 			end
 			if not creative then
@@ -66,6 +68,7 @@ function creatura.register_spawn_egg(name, col1, col2, inventory_image) -- depre
 end
 
 function creatura.register_spawn_item(name, def)
+	local inventory_image
 	if not def.inventory_image
 	and def.col1 and def.col2 then
 		local base = "(creatura_spawning_crystal.png^[multiply:#" .. def.col1 .. ")"
@@ -77,18 +80,17 @@ function creatura.register_spawn_item(name, def)
 	minetest.register_craftitem(mod_name .. ":spawn_" .. mob_name, {
 		description = def.description or "Spawn " .. format_name(name),
 		inventory_image = def.inventory_image or inventory_image,
-		stack_max = 99,
-		on_place = function(itemstack, _, pointed_thing)
+		on_place = function(itemstack, player, pointed_thing)
 			local mobdef = minetest.registered_entities[name]
-			local spawn_offset = math.abs(mobdef.collisionbox[2])
+			local spawn_offset = abs(mobdef.collisionbox[2])
 			local pos = minetest.get_pointed_thing_position(pointed_thing, true)
 			pos.y = (pos.y - 0.49) + spawn_offset
 			local object = minetest.add_entity(pos, name)
 			if object then
-				object:set_yaw(math.random(1, 6))
+				object:set_yaw(random(0, pi * 2))
 				object:get_luaentity().last_yaw = object:get_yaw()
 			end
-			if not creative then
+			if not minetest.is_creative_enabled(player:get_player_name()) then
 				itemstack:take_item()
 				return itemstack
 			end
@@ -127,7 +129,7 @@ end
 
 -- Utility Functions --
 
-function is_value_in_table(tbl, val)
+local function is_value_in_table(tbl, val)
 	for _, v in pairs(tbl) do
 		if v == val then
 			return true
@@ -136,22 +138,9 @@ function is_value_in_table(tbl, val)
 	return false
 end
 
-function get_biome_name(pos)
+local function get_biome_name(pos)
 	if not pos then return end
 	return minetest.get_biome_name(minetest.get_biome_data(pos).biome)
-end
-
-function get_ground_level(pos)
-	local node = minetest.get_node(pos)
-	local node_def = minetest.registered_nodes[node.name]
-	local height = 0
-	while node_def.walkable
-	and height < 4 do
-		height = height + 1
-		node = minetest.get_node(vec_raise(pos, height))
-		node_def = minetest.registered_nodes[node.name]
-	end
-	return vec_raise(pos, height)
 end
 
 local function get_spawnable_mobs(pos)
@@ -169,12 +158,10 @@ end
 
 -- Spawning Function --
 
-local spawn_queue = {}
-
 local min_spawn_radius = 32
 local max_spawn_radius = 128
 
-function execute_spawns(player)
+local function execute_spawns(player)
 	if not player:get_pos() then return end
 	local pos = player:get_pos()
 
@@ -216,7 +203,10 @@ function execute_spawns(player)
 		if type(spawn_on) == "string" then
 			spawn_on = {spawn_on}
 		end
-		local spawn_y_array = index_func(vec_raise(spawn_pos_center, -max_spawn_radius), vec_raise(spawn_pos_center, max_spawn_radius), spawn_on)
+		local spawn_y_array = index_func(
+			vec_raise(spawn_pos_center, -max_spawn_radius),
+			vec_raise(spawn_pos_center, max_spawn_radius),
+			spawn_on)
 		if spawn_y_array[1] then
 			local spawn_pos = spawn_y_array[1]
 			local dist = vector.distance(pos, spawn_pos)
@@ -254,7 +244,7 @@ function execute_spawns(player)
 						y = spawn_pos.y,
 						z = spawn_pos.z + random(-3, 3)
 					}
-					spawn_pos = get_ground_level(spawn_pos)
+					spawn_pos = creatura.get_ground_level(spawn_pos, 4)
 					minetest.add_node(spawn_pos, {name = "creatura:spawn_node"})
 					local meta = minetest.get_meta(spawn_pos)
 					meta:set_string("mob", mob)
@@ -301,7 +291,7 @@ minetest.register_abm({
 		local amount = meta:get_int("cluster")
 		local obj
 		if amount > 0 then
-			for i = 1, amount do
+			for _ = 1, amount do
 				obj = minetest.add_entity(pos, name)
 			end
 		else
