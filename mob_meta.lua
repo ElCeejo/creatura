@@ -126,6 +126,15 @@ local function get_ground_level(pos2, max_diff)
 	return pos2
 end
 
+local function is_value_in_table(tbl, val)
+    for _, v in pairs(tbl) do
+        if v == val then
+            return true
+        end
+    end
+    return false
+end
+
 -------------------------
 -- Physics/Vitals Tick --
 -------------------------
