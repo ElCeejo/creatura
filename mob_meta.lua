@@ -1156,7 +1156,8 @@ function mob:_execute_utilities()
 	end
 	if loop_data.utility
 	and loop_data.args then
-		if not self._utility_data then
+		if not self._utility_data
+		or not self._utility_data.args then
 			self._utility_data = loop_data
 		else
 			local no_data = not self._utility_data.utility and not self._utility_data.args
