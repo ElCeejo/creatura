@@ -693,7 +693,7 @@ end
 
 function mob:initiate_utility(utility, ...)
 	local func = creatura.registered_utilities[utility]
-	if not func then return end
+	if not func or not self._utility_data then return end
 	self._utility_data.utility = utility
 	self:clear_action()
 	func(...)
@@ -1155,7 +1155,8 @@ function mob:_execute_utilities()
 		end
 	end
 	if loop_data.utility
-	and loop_data.args then
+	and loop_data.args
+	and self._utility_data.args then
 		local no_data = not self._utility_data.utility and not self._utility_data.args
 		local new_util = self._utility_data.utility ~= loop_data.utility or not tbl_equals(self._utility_data.args, loop_data.args)
 		if no_data
