@@ -84,9 +84,10 @@ function creatura.register_spawn_item(name, def)
 	def.description = def.description or "Spawn " .. format_name(name)
 	def.inventory_image = def.inventory_image or inventory_image
 	def.on_place = function(itemstack, player, pointed_thing)
+		local pos = minetest.get_pointed_thing_position(pointed_thing, true)
+		if minetest.is_protected(pos, player and player:get_player_name() or "") then return end
 		local mobdef = minetest.registered_entities[name]
 		local spawn_offset = abs(mobdef.collisionbox[2])
-		local pos = minetest.get_pointed_thing_position(pointed_thing, true)
 		pos.y = (pos.y - 0.49) + spawn_offset
 		if def.antispam then
 			local objs = minetest.get_objects_in_area(vec_sub(pos, 0.51), vec_add(pos, 0.51))
