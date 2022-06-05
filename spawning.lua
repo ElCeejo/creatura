@@ -26,6 +26,10 @@ local function vec_raise(v, n)
 	return {x = v.x, y = v.y + n, z = v.z}
 end
 
+local vec_sub = vector.subtract
+local vec_add = vector.add
+
+
 -- Registration --
 
 local creative = minetest.settings:get_bool("creative_mode")
@@ -77,25 +81,35 @@ function creatura.register_spawn_item(name, def)
 	end
 	local mod_name = name:split(":")[1]
 	local mob_name = name:split(":")[2]
-	minetest.register_craftitem(mod_name .. ":spawn_" .. mob_name, {
-		description = def.description or "Spawn " .. format_name(name),
-		inventory_image = def.inventory_image or inventory_image,
-		on_place = function(itemstack, player, pointed_thing)
-			local mobdef = minetest.registered_entities[name]
-			local spawn_offset = abs(mobdef.collisionbox[2])
-			local pos = minetest.get_pointed_thing_position(pointed_thing, true)
-			pos.y = (pos.y - 0.49) + spawn_offset
-			local object = minetest.add_entity(pos, name)
-			if object then
-				object:set_yaw(random(0, pi * 2))
-				object:get_luaentity().last_yaw = object:get_yaw()
-			end
-			if not minetest.is_creative_enabled(player:get_player_name()) then
-				itemstack:take_item()
-				return itemstack
+	def.description = def.description or "Spawn " .. format_name(name)
+	def.inventory_image = def.inventory_image or inventory_image
+	def.on_place = function(itemstack, player, pointed_thing)
+		local mobdef = minetest.registered_entities[name]
+		local spawn_offset = abs(mobdef.collisionbox[2])
+		local pos = minetest.get_pointed_thing_position(pointed_thing, true)
+		pos.y = (pos.y - 0.49) + spawn_offset
+		if def.antispam then
+			local objs = minetest.get_objects_in_area(vec_sub(pos, 0.51), vec_add(pos, 0.51))
+			for _, obj in ipairs(objs) do
+				if obj
+				and obj:get_luaentity()
+				and obj:get_luaentity().name == name then
+					return
+				end
 			end
 		end
-	})
+		local object = minetest.add_entity(pos, name)
+		if object then
+			object:set_yaw(random(0, pi * 2))
+			object:get_luaentity().last_yaw = object:get_yaw()
+		end
+		if not minetest.is_creative_enabled(player:get_player_name())
+		or def.consume_in_creative then
+			itemstack:take_item()
+			return itemstack
+		end
+	end
+	minetest.register_craftitem(mod_name .. ":spawn_" .. mob_name, def)
 end
 
 function creatura.register_mob_spawn(name, def)
