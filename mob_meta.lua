@@ -323,7 +323,9 @@ end
 -- Return position at center of mobs hitbox
 
 function mob:get_center_pos()
-	return vec_raise(self.object:get_pos(), self.height * 0.5 or 0.5)
+	local pos = self.object:get_pos()
+	if not pos then return end
+	return vec_raise(pos, self.height * 0.5 or 0.5)
 end
 
 -- Return true if position is within box
@@ -331,6 +333,7 @@ end
 function mob:pos_in_box(pos, size)
 	if not pos then return false end
 	local center = self:get_center_pos()
+	if not center then return false end
 	local width = size or self.width
 	local height = size or (self.height * 0.5)
 	if not size
@@ -587,9 +590,6 @@ function mob:play_sound(sound)
 
 	if type(spec) == "table" then
 		local name = spec.name
-		if spec.variations then
-			name = name .. "_" .. random(spec.variations)
-		end
 		local pitch = 1.0
 
 		pitch = pitch - (random(-10, 10) * 0.005)
@@ -659,6 +659,7 @@ function mob:get_target(target)
 		target = target.object
 	end
 	local pos = self:get_center_pos()
+	if not pos then return false, false, nil end
 	local tpos = target:get_pos()
 	tpos.y = floor(tpos.y + 0.5)
 	local line_of_sight = fast_ray_sight(pos, tpos)
@@ -1234,8 +1235,8 @@ function mob:_vitals()
 		if minetest.get_item_group(minetest.get_node(stand_pos).name, "fire") > 0
 		and stand_def.damage_per_second then
 			local damage = stand_def.damage_per_second
-			local resist = self.fire_resistance or 0
-			self:hurt(damage - (damage * (resist * 0.1)))
+			local resist = self.fire_resistance or 0.5
+			self:hurt(damage - damage * resist)
 			self:indicate_damage()
 			if random(4) < 2 then
 				self:play_sound("hurt")
