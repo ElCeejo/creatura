@@ -937,7 +937,8 @@ local function do_step(self)
 end
 
 local function collision_detection(self)
-	if not creatura.is_alive(self) then return end
+	if not creatura.is_alive(self)
+	or self.fancy_collide == false then return end
 	local pos = self.object:get_pos()
 	local width = self.width + 0.25
 	local objects = minetest.get_objects_in_area(vec_sub(pos, width), vec_add(pos, width))
