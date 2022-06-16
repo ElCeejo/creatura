@@ -15,12 +15,7 @@ local cos = math.cos
 local atan2 = math.atan2
 
 local function diff(a, b) -- Get difference between 2 angles
-	return math.atan2(math.sin(b - a), math.cos(b - a))
-end
-
-local function round(n, dec)
-	local x = 10^(dec or 0)
-	return math.floor(n * x + 0.5) / x
+	return atan2(sin(b - a), cos(b - a))
 end
 
 local vec_dir = vector.direction
@@ -50,89 +45,13 @@ end
 
 -- Local Utilities --
 
-local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
-
-local function get_node_height(name)
-	local def = minetest.registered_nodes[name]
-	if not def then return 0.5 end
-	if def.walkable then
-		if def.drawtype == "nodebox" then
-			if def.node_box
-			and def.node_box.type == "fixed" then
-				if type(def.node_box.fixed[1]) == "number" then
-					return 0.5 + def.node_box.fixed[5]
-				elseif type(def.node_box.fixed[1]) == "table" then
-					return 0.5 + def.node_box.fixed[1][5]
-				else
-					return 1
-				end
-			else
-				return 1
-			end
-		else
-			return 1
-		end
-	else
-		return 1
-	end
-end
-
-local function get_node_def(name)
-	local def = minetest.registered_nodes[name] or default_node_def
-	if def.walkable
-	and get_node_height(name) < 0.26 then
-		def.walkable = false -- workaround for nodes like snow
-	end
-	return def
-end
-
-local function get_ground_level(pos2, max_diff)
-	local node = minetest.get_node(pos2)
-	local node_under = minetest.get_node({
-		x = pos2.x,
-		y = pos2.y - 1,
-		z = pos2.z
-	})
-	local walkable = get_node_def(node_under.name) and not get_node_def(node.name)
-	if walkable then
-		return pos2
-	end
-	local diff = 0
-	if not get_node_def(node_under.name) then
-		for i = 1, max_diff do
-			pos2.y = pos2.y - 1
-			node = minetest.get_node(pos2)
-			node_under = minetest.get_node({
-				x = pos2.x,
-				y = pos2.y - 1,
-				z = pos2.z
-			})
-			walkable = get_node_def(node_under.name) and not get_node_def(node.name)
-			if walkable then break end
-		end
-	else
-		for i = 1, max_diff do
-			pos2.y = pos2.y + 1
-			node = minetest.get_node(pos2)
-			node_under = minetest.get_node({
-				x = pos2.x,
-				y = pos2.y - 1,
-				z = pos2.z
-			})
-			walkable = get_node_def(node_under.name) and not get_node_def(node.name)
-			if walkable then break end
-		end
-	end
-	return pos2
-end
-
 local function is_value_in_table(tbl, val)
-    for _, v in pairs(tbl) do
-        if v == val then
-            return true
-        end
-    end
-    return false
+	for _, v in pairs(tbl) do
+		if v == val then
+			return true
+		end
+	end
+	return false
 end
 
 -------------------------
@@ -204,7 +123,7 @@ end
 function mob:indicate_damage()
 	self._original_texture_mod = self._original_texture_mod or self.object:get_texture_mod()
 	self.object:set_texture_mod(self._original_texture_mod .. "^[colorize:#FF000040")
-	core.after(0.2, function()
+	minetest.after(0.2, function()
 		if creatura.is_alive(self) then
 			self.object:set_texture_mod(self._original_texture_mod)
 		end
@@ -265,8 +184,8 @@ end
 
 -- Sets Velocity to desired speed in mobs current look direction
 
-function mob:set_forward_velocity(speed)
-	local speed = speed or self._movement_data.speed
+function mob:set_forward_velocity(_speed)
+	local speed = _speed or self._movement_data.speed
 	local dir = minetest.yaw_to_dir(self.object:get_yaw())
 	local vel = vec_multi(dir, speed)
 	vel.y = self.object:get_velocity().y
@@ -367,12 +286,11 @@ end
 function mob:get_wander_pos(min_range, max_range, dir)
 	local pos = vec_center(self.object:get_pos())
 	pos.y = floor(pos.y + 0.5)
-	local node = minetest.get_node(pos)
-	if get_node_def(node.name).walkable then -- Occurs if small mob is touching a fence
+	if creatura.get_node_def(pos).walkable then -- Occurs if small mob is touching a fence
 		local offset = vector.add(pos, vec_multi(vec_dir(pos, self.object:get_pos()), 1.5))
 		pos.x = floor(offset.x + 0.5)
 		pos.z = floor(offset.z + 0.5)
-		pos = get_ground_level(pos, 1)
+		pos = creatura.get_ground_level(pos, 1)
 	end
 	local width = self.width
 	local outset = random(min_range, max_range)
@@ -383,16 +301,16 @@ function mob:get_wander_pos(min_range, max_range, dir)
 		z = random(-10, 10) * 0.1
 	})
 	local pos2 = vec_add(pos, vec_multi(move_dir, width))
-	if get_node_def(minetest.get_node(pos2).name).walkable
+	if creatura.get_node_def(pos2).walkable
 	and not dir then
-		for i = 1, 3 do
+		for _ = 1, 3 do
 			move_dir = {
 				x = move_dir.z,
 				y = 0,
 				z = move_dir.x * -1
 			}
 			pos2 = vec_add(pos, vec_multi(move_dir, width))
-			if not get_node_def(minetest.get_node(pos2).name).walkable then
+			if not creatura.get_node_def(pos2).walkable then
 				break
 			end
 		end
@@ -401,14 +319,12 @@ function mob:get_wander_pos(min_range, max_range, dir)
 	end
 	for i = 1, outset do
 		local a_pos = vec_add(pos2, vec_multi(move_dir, i))
-		local a_node = minetest.get_node(a_pos)
 		local b_pos = {x = a_pos.x, y = a_pos.y - 1, z = a_pos.z}
-		local b_node = minetest.get_node(b_pos)
-		if get_node_def(a_node.name).walkable
-		or not get_node_def(b_node.name).walkable then
-			a_pos = get_ground_level(a_pos, floor(self.stepheight or 1))
+		if creatura.get_node_def(a_pos).walkable
+		or not creatura.get_node_def(b_pos).walkable then
+			a_pos = creatura.get_ground_level(a_pos, floor(self.stepheight or 1))
 		end
-		if not get_node_def(a_node.name).walkable then
+		if not creatura.get_node_def(a_pos).walkable then
 			pos2 = a_pos
 		else
 			break
@@ -419,12 +335,11 @@ end
 
 function mob:get_wander_pos_3d(min_range, max_range, dir, vert_bias)
 	local pos = vec_center(self.object:get_pos())
-	local node = minetest.get_node(pos)
-	if get_node_def(node.name).walkable then -- Occurs if small mob is touching a fence
+	if creatura.get_node_def(pos).walkable then -- Occurs if small mob is touching a fence
 		local offset = vector.add(pos, vec_multi(vec_dir(pos, self.object:get_pos()), 1.5))
 		pos.x = floor(offset.x + 0.5)
 		pos.z = floor(offset.z + 0.5)
-		pos = get_ground_level(pos, 1)
+		pos = creatura.get_ground_level(pos, 1)
 	end
 	local width = self.width
 	local outset = random(min_range, max_range)
@@ -435,16 +350,16 @@ function mob:get_wander_pos_3d(min_range, max_range, dir, vert_bias)
 		z = random(-10, 10) * 0.1
 	})
 	local pos2 = vec_add(pos, vec_multi(move_dir, width))
-	if get_node_def(minetest.get_node(pos2).name).walkable
+	if creatura.get_node_def(pos2).walkable
 	and not dir then
-		for i = 1, 3 do
+		for _ = 1, 3 do
 			move_dir = {
 				x = move_dir.z,
 				y = move_dir.y,
 				z = move_dir.x * -1
 			}
 			pos2 = vec_add(pos, vec_multi(move_dir, width))
-			if not get_node_def(minetest.get_node(pos2).name).walkable then
+			if not creatura.get_node_def(pos2).walkable then
 				break
 			end
 		end
@@ -453,11 +368,10 @@ function mob:get_wander_pos_3d(min_range, max_range, dir, vert_bias)
 	end
 	for i = 1, outset do
 		local a_pos = vec_add(pos2, vec_multi(move_dir, i))
-		local a_node = minetest.get_node(a_pos)
-		if get_node_def(a_node.name).walkable then
-			a_pos = get_ground_level(a_pos, floor(self.stepheight or 1))
+		if creatura.get_node_def(a_pos).walkable then
+			a_pos = creatura.get_ground_level(a_pos, floor(self.stepheight or 1))
 		end
-		if not get_node_def(a_node.name).walkable then
+		if not creatura.get_node_def(a_pos).walkable then
 			pos2 = a_pos
 		else
 			break
@@ -471,8 +385,8 @@ function mob:is_pos_safe(pos)
 	local node = minetest.get_node(pos)
 	if not node then return false end
 	if minetest.get_item_group(node.name, "igniter") > 0
-	or get_node_def(node.name).drawtype == "liquid"
-	or get_node_def(minetest.get_node(vec_raise(pos, -1)).name).drawtype == "liquid" then return false end
+	or creatura.get_node_def(node.name).drawtype == "liquid"
+	or creatura.get_node_def(vec_raise(pos, -1)).drawtype == "liquid" then return false end
 	local fall_safe = false
 	if self.max_fall ~= 0 then
 		for i = 1, self.max_fall or 3 do
@@ -481,7 +395,7 @@ function mob:is_pos_safe(pos)
 				y = floor(mob_pos.y + 0.5) - i,
 				z = pos.z
 			}
-			if get_node_def(minetest.get_node(fall_pos).name).walkable then
+			if creatura.get_node_def(fall_pos).walkable then
 				fall_safe = true
 				break
 			end
@@ -809,9 +723,9 @@ function mob:activate(staticdata, dtime)
 
 	if self.timer
 	and type(self.timer) == "number" then -- fix crash for converted mobs_redo mobs
-		self.timer = function(self, n)
-			local t1 = floor(self.active_time)
-			local t2 = floor(self.active_time + self.dtime)
+		self.timer = function(_self, n)
+			local t1 = floor(_self.active_time)
+			local t2 = floor(_self.active_time + _self.dtime)
 			if t2 > t1 and t2%n == 0 then return true end
 		end
 	end
@@ -830,7 +744,6 @@ function mob:staticdata()
 end
 
 function mob:on_step(dtime, moveresult)
-	--local us_time = minetest.get_us_time()
 	if not self.hp then return end
 	self.dtime = dtime or 0.09
 	self.moveresult = moveresult or {}
@@ -851,11 +764,12 @@ function mob:on_step(dtime, moveresult)
 		self.width = self:get_hitbox()[4] or 0.5
 		self.height = self:get_height() or 1
 	end
-	self:_light_physics()
+	--local us_time = minetest.get_us_time()
 	-- Movement Control
 	if self._move then
 		self:_move()
 	end
+	--minetest.chat_send_all(minetest.get_us_time() - us_time)
 	if self.utility_stack
 	and self._execute_utilities then
 		self:_execute_utilities()
@@ -912,7 +826,9 @@ local function do_step(self)
 		and abs(vel.x + vel.z) > 0 then
 			local border = self._border
 			local yaw_offset = vec_add(pos, vec_multi(minetest.yaw_to_dir(self.object:get_yaw()), self.width + 0.7))
-			table.sort(border, function(a, b) return vec_dist(vec_add(pos, a), yaw_offset) < vec_dist(vec_add(pos, b), yaw_offset) end)
+			table.sort(border, function(a, b)
+				return vec_dist(vec_add(pos, a), yaw_offset) < vec_dist(vec_add(pos, b), yaw_offset)
+			end)
 			local step_pos = vec_center(vec_add(pos, border[1]))
 			local halfway = vec_add(pos, vec_multi(vec_dir(pos, step_pos), 0.5))
 			halfway.y = step_pos.y
@@ -923,7 +839,6 @@ local function do_step(self)
 			end
 		end
 	else
-		local vel = self.object:get_velocity()
 		self.object:set_velocity(vector.new(vel.x, 7, vel.z))
 		if self._step.y < pos.y - 0.5 then
 			self.object:set_velocity(vector.new(vel.x, 0.5, vel.z))
@@ -943,7 +858,6 @@ local function collision_detection(self)
 	local width = self.width + 0.25
 	local objects = minetest.get_objects_in_area(vec_sub(pos, width), vec_add(pos, width))
 	if #objects < 2 then return end
-	local col_no = 0
 	for i = 2, #objects do
 		local object = objects[i]
 		if creatura.is_alive(object)
@@ -975,7 +889,6 @@ local function water_physics(self)
 	floor_pos.y = floor_pos.y + 0.01
 	local surface_pos = floor_pos
 	local floor_node = minetest.get_node(floor_pos)
-	local surface_node = minetest.get_node(surface_pos)
 	if minetest.get_item_group(floor_node.name, "liquid") < 1 then
 		self.object:set_acceleration({
 			x = 0,
@@ -1012,7 +925,7 @@ local function water_physics(self)
 	})
 	local hydrodynamics = self.hydrodynamics_multiplier or 0.7
 	local vel_y = vel.y
-	if self.bouyancy_multiplier == 0 then -- if bouyancy is disabled drag will be applied to keep awuatic mobs from drifting
+	if self.bouyancy_multiplier == 0 then
 		vel_y = vel.y * hydrodynamics
 	end
 	self.object:set_velocity({
@@ -1084,7 +997,6 @@ end
 
 function mob:_execute_actions()
 	if not self.object then return end
-	local task = self._task
 	if #self._task > 0 then
 		local func = self._task[#self._task].func
 		if func(self) then
@@ -1128,7 +1040,7 @@ function mob:_execute_utilities()
 		func = nil,
 		score = 0
 	}
-	if (self:timer(self.task_timer or 1)
+	if (self:timer(self.util_timer or 1)
 	or not self._utility_data.func)
 	and is_alive then
 		for i = 1, #self.utility_stack do
@@ -1163,7 +1075,8 @@ function mob:_execute_utilities()
 			self._utility_data = loop_data
 		else
 			local no_data = not self._utility_data.utility and not self._utility_data.args
-			local new_util = self._utility_data.utility ~= loop_data.utility or not tbl_equals(self._utility_data.args, loop_data.args)
+			local same_args = tbl_equals(self._utility_data.args, loop_data.args)
+			local new_util = self._utility_data.utility ~= loop_data.utility or not same_args
 			if no_data
 			or new_util then -- if utilities are different or utilities are the same and args are different set new data
 				self._utility_data = loop_data
@@ -1218,9 +1131,10 @@ function mob:_vitals()
 	end
 	if self:timer(1) then
 		local head_pos = vec_raise(stand_pos, self.height)
-		local head_def = get_node_def(minetest.get_node(head_pos).name)
+		local head_node = minetest.get_node(head_pos)
+		local head_def = creatura.get_node_def(head_node.name)
 		if head_def.drawtype == "liquid"
-		and minetest.get_item_group(minetest.get_node(head_pos).name, "water") > 0 then
+		and minetest.get_item_group(head_node.name, "water") > 0 then
 			if self._breath <= 0 then
 				self:hurt(1)
 				self:indicate_damage()
@@ -1232,8 +1146,9 @@ function mob:_vitals()
 				self:memorize("_breath", self._breath)
 			end
 		end
-		local stand_def = get_node_def(minetest.get_node(stand_pos).name)
-		if minetest.get_item_group(minetest.get_node(stand_pos).name, "fire") > 0
+		local stand_node = minetest.get_node(stand_pos)
+		local stand_def = creatura.get_node_def(stand_node.name)
+		if minetest.get_item_group(stand_node.name, "fire") > 0
 		and stand_def.damage_per_second then
 			local damage = stand_def.damage_per_second
 			local resist = self.fire_resistance or 0.5
