@@ -211,15 +211,7 @@ function creatura.find_path(self, start, goal, obj_width, obj_height, max_open, 
 				return
 			end
 			-- Initialize ID and data
-			local current_id
-			local current
-
-			-- Get an initial id in open set
-			for i, v in pairs(openSet) do
-				current_id = i
-				current = v
-				break
-			end
+			local current_id, current = next(openSet)
 
 			-- Find lowest f cost
 			for i, v in pairs(openSet) do
@@ -430,15 +422,7 @@ function creatura.find_theta_path(self, start, goal, obj_width, obj_height, max_
 			end
 
 			-- Initialize ID and data
-			local current_id
-			local current
-
-			-- Get an initial id in open set
-			for i, v in pairs(openSet) do
-				current_id = i
-				current = v
-				break
-			end
+			local current_id, current = next(openSet)
 
 			-- Find lowest f cost
 			for i, v in pairs(openSet) do
