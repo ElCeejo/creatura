@@ -192,7 +192,7 @@ local function execute_spawns(player)
 		local mob = spawnable_mobs[random(#spawnable_mobs)]
 		local spawn = creatura.registered_mob_spawns[mob]
 		if not spawn
-		or random(spawn.chance) > 1 then return end
+		or random(spawn.chance or 2) > 1 then return end
 
 		-- Spawn cap check
 		local objects = minetest.get_objects_inside_radius(pos, max_spawn_radius)
@@ -245,7 +245,7 @@ local function execute_spawns(player)
 				return
 			end
 
-			local group_size = random(spawn.min_group, spawn.max_group)
+			local group_size = random(spawn.min_group or 1, spawn.max_group or 1)
 
 			if spawn.spawn_cluster then
 				minetest.add_node(spawn_pos, {name = "creatura:spawn_node"})
