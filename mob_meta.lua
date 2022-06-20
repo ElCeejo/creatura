@@ -973,9 +973,6 @@ function mob:_physics(moveresult)
 	end
 end
 
-function mob:_light_physics() -- physics that are lightweight enough to be called each step
-end
-
 -- Movement Control
 
 function mob:_move()
