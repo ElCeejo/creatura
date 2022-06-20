@@ -302,7 +302,8 @@ minetest.register_abm({
 	chance = 1,
 	action = function(pos)
 		local meta = minetest.get_meta(pos)
-		local name = meta:get_string("mob")
+		local name = meta:get_string("mob") or ""
+		if name == "" then minetest.remove_node(pos) return end
 		local amount = meta:get_int("cluster")
 		local obj
 		if amount > 0 then
