@@ -149,6 +149,7 @@ function mob:halt()
 	self._movement_data = {
 		goal = nil,
 		method = nil,
+		func = nil,
 		last_neighbor = nil,
 		gravity = self._movement_data.gravity or -9.8,
 		speed = 0
@@ -564,6 +565,22 @@ function mob:follow_wielded_item(player)
 	end
 end
 
+function mob:follow_item(stack)
+	if not stack
+	or not self.follow then return end
+	local name = stack:get_name()
+	if type(self.follow) == "string"
+	and (name == self.follow
+	or minetest.get_item_group(name, self.follow:split(":")[2]) > 0) then
+		return stack, name
+	end
+	if type(self.follow) == "table"
+	and (is_value_in_table(self.follow, name)
+	or is_group_in_table(self.follow, name)) then
+		return stack, name
+	end
+end
+
 function mob:get_target(target)
 	local alive = creatura.is_alive(target)
 	if not alive then
@@ -651,6 +668,7 @@ function mob:activate(staticdata, dtime)
 	self._movement_data = {
 		goal = nil,
 		method = nil,
+		func = nil,
 		last_neighbor = nil,
 		gravity = -9.8,
 		speed = 0
@@ -764,16 +782,9 @@ function mob:on_step(dtime, moveresult)
 		self.width = self:get_hitbox()[4] or 0.5
 		self.height = self:get_height() or 1
 	end
-	--local us_time = minetest.get_us_time()
-	-- Movement Control
-	if self._move then
-		self:_move()
-	end
-	--minetest.chat_send_all(minetest.get_us_time() - us_time)
 	if self.utility_stack
 	and self._execute_utilities then
 		self:_execute_utilities()
-		self:_execute_actions()
 	end
 	-- Die
 	if self.hp <= 0
@@ -975,41 +986,21 @@ end
 
 -- Movement Control
 
-function mob:_move()
-	if not self.object then return end
+function mob:move_to(goal, method, speed_factor)
+	local get_method = creatura.registered_movement_methods[method]
 	local data = self._movement_data
-	local speed = data.speed
-	if data.goal then
-		local pos = data.goal
-		local method = data.method
-		local anim = data.anim
-		if creatura.registered_movement_methods[method] then
-			local func = creatura.registered_movement_methods[method]
-			func(self, pos, speed, anim)
-		end
+	if get_method
+	and not data.func then
+		self._movement_data.func = get_method(self, goal, speed_factor)
+		return self._movement_data.func(self, goal, speed_factor)
+	end
+	if data.func then
+		local move = data.func
+		return move(self, goal, speed_factor)
 	end
 end
 
 -- Execute Actions
-
-function mob:_execute_actions()
-	if not self.object then return end
-	if #self._task > 0 then
-		local func = self._task[#self._task].func
-		if func(self) then
-			self._task[#self._task] = nil
-			self:clear_action()
-			return
-		end
-	end
-	local action = self._action
-	if type(action) ~= "table" then
-		local func = action
-		if func(self) then
-			self:clear_action()
-		end
-	end
-end
 
 local function tbl_equals(tbl1, tbl2)
 	local match = true
@@ -1094,6 +1085,15 @@ function mob:_execute_utilities()
 			}
 			self:clear_action()
 		end
+		--local us_time = minetest.get_us_time()
+		local action = self._action
+		if action
+		and type(action) ~= "table" then
+			if action(self) then
+				self:clear_action()
+			end
+		end
+		--minetest.chat_send_all(minetest.get_us_time() - us_time)
 	end
 end
 
@@ -1101,6 +1101,7 @@ end
 
 function mob:_vitals()
 	local stand_pos = self.object:get_pos()
+	if not stand_pos then return end
 	local fall_start = self._fall_start
 	if self.is_falling
 	and not fall_start
