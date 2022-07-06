@@ -5,9 +5,7 @@
 local pi = math.pi
 local abs = math.abs
 local ceil = math.ceil
-local floor = math.floor
 local random = math.random
-local rad = math.rad
 local atan2 = math.atan2
 local sin = math.sin
 local cos = math.cos
@@ -23,10 +21,6 @@ local function clamp(val, min, max)
 		val = max
 	end
 	return val
-end
-
-local function vec_center(v)
-	return {x = floor(v.x + 0.5), y = floor(v.y + 0.5), z = floor(v.z + 0.5)}
 end
 
 local vec_dist = vector.distance
@@ -96,7 +90,6 @@ local function get_collision(self, yaw)
 			}
 			local ray = raycast(vec1, vec2, true)
 			if ray then
-				local ray_pos = ray.intersection_point
 				if y > (self.stepheight or 1.1)
 				or y > height then
 					return true, ray.intersection_point
@@ -109,7 +102,7 @@ local function get_collision(self, yaw)
 	return false
 end
 
-local function get_avoidance_dir(self, goal)
+local function get_avoidance_dir(self)
 	local pos = self.object:get_pos()
 	if not pos then return end
 	local collide, col_pos = get_collision(self, self.object:get_yaw())
@@ -190,26 +183,26 @@ end
 
 -- Pathfinding
 
-creatura.register_movement_method("creatura:pathfind", function(self, goal, speed_factor)
+creatura.register_movement_method("creatura:pathfind", function(self)
 	local path = {}
 	local box = clamp(self.width, 0.5, 1.5)
 	self:set_gravity(-9.8)
-	local function func(self, goal)
-		local pos = self.object:get_pos()
+	local function func(_self, goal, speed_factor)
+		local pos = _self.object:get_pos()
 		if not pos then return end
 		pos.y = creatura.get_ground_level(pos, 3).y
 		-- Return true when goal is reached
 		if vec_dist(pos, goal) < box * 1.33 then
-			self:halt()
+			_self:halt()
 			return true
 		end
 		-- Get movement direction
-		local steer_to = get_avoidance_dir(self, goal)
+		local steer_to = get_avoidance_dir(_self, goal, speed_factor)
 		local goal_dir = vec_dir(pos, goal)
-		if steer then
-			goal_dir = steer
+		if steer_to then
+			goal_dir = steer_to
 			if #path < 2 then
-				path = creatura.find_path(self, pos, goal, self.width, self.height, 200) or {}
+				path = creatura.find_path(_self, pos, goal, _self.width, _self.height, 200) or {}
 			end
 		end
 		if #path > 1 then
@@ -218,45 +211,45 @@ creatura.register_movement_method("creatura:pathfind", function(self, goal, spee
 				table.remove(path, 1)
 			end
 		end
-		local yaw = self.object:get_yaw()
+		local yaw = _self.object:get_yaw()
 		local goal_yaw = dir2yaw(goal_dir)
-		local speed = abs(self.speed or 2) * speed_factor or 0.5
-		local turn_rate = abs(self.turn_rate or 5)
+		local speed = abs(_self.speed or 2) * speed_factor or 0.5
+		local turn_rate = abs(_self.turn_rate or 5)
 		-- Movement
 		local yaw_diff = abs(diff(yaw, goal_yaw))
 		if yaw_diff < pi * 0.25
-		or obs_avd then
-			self:set_forward_velocity(speed)
+		or steer_to then
+			_self:set_forward_velocity(speed)
 		else
-			self:set_forward_velocity(speed * 0.33)
+			_self:set_forward_velocity(speed * 0.33)
 		end
 		if yaw_diff > 0.1 then
-			self:turn_to(goal_yaw, turn_rate)
+			_self:turn_to(goal_yaw, turn_rate)
 		end
 	end
 	return func
 end)
 
-creatura.register_movement_method("creatura:theta_pathfind", function(self, goal, speed_factor)
+creatura.register_movement_method("creatura:theta_pathfind", function(self)
 	local path = {}
 	local box = clamp(self.width, 0.5, 1.5)
 	self:set_gravity(-9.8)
-	local function func(self, goal)
-		local pos = self.object:get_pos()
+	local function func(_self, goal, speed_factor)
+		local pos = _self.object:get_pos()
 		if not pos then return end
 		pos.y = creatura.get_ground_level(pos, 3).y
 		-- Return true when goal is reached
 		if vec_dist(pos, goal) < box * 1.33 then
-			self:halt()
+			_self:halt()
 			return true
 		end
 		-- Get movement direction
-		local steer_to = get_avoidance_dir(self, goal)
+		local steer_to = get_avoidance_dir(_self, goal)
 		local goal_dir = vec_dir(pos, goal)
-		if steer then
-			goal_dir = steer
+		if steer_to then
+			goal_dir = steer_to
 			if #path < 1 then
-				path = creatura.find_theta_path(self, pos, goal, self.width, self.height, 300) or {}
+				path = creatura.find_theta_path(_self, pos, goal, _self.width, _self.height, 300) or {}
 			end
 		end
 		if #path > 0 then
@@ -265,20 +258,20 @@ creatura.register_movement_method("creatura:theta_pathfind", function(self, goal
 				table.remove(path, 1)
 			end
 		end
-		local yaw = self.object:get_yaw()
+		local yaw = _self.object:get_yaw()
 		local goal_yaw = dir2yaw(goal_dir)
-		local speed = abs(self.speed or 2) * speed_factor or 0.5
-		local turn_rate = abs(self.turn_rate or 5)
+		local speed = abs(_self.speed or 2) * speed_factor or 0.5
+		local turn_rate = abs(_self.turn_rate or 5)
 		-- Movement
 		local yaw_diff = abs(diff(yaw, goal_yaw))
 		if yaw_diff < pi * 0.25
-		or obs_avd then
-			self:set_forward_velocity(speed)
+		or steer_to then
+			_self:set_forward_velocity(speed)
 		else
-			self:set_forward_velocity(speed * 0.33)
+			_self:set_forward_velocity(speed * 0.33)
 		end
 		if yaw_diff > 0.1 then
-			self:turn_to(goal_yaw, turn_rate)
+			_self:turn_to(goal_yaw, turn_rate)
 		end
 	end
 	return func
@@ -286,38 +279,38 @@ end)
 
 -- Obstacle Avoidance
 
-creatura.register_movement_method("creatura:obstacle_avoidance", function(self, goal, speed_factor)
+creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 	local box = clamp(self.width, 0.5, 1.5)
 	self:set_gravity(-9.8)
-	local function func(self, goal)
-		local pos = self.object:get_pos()
+	local function func(_self, goal, speed_factor)
+		local pos = _self.object:get_pos()
 		if not pos then return end
 		pos.y = creatura.get_ground_level(pos, 2).y
 		-- Return true when goal is reached
 		if vec_dist(pos, goal) < box * 1.33 then
-			self:halt()
+			_self:halt()
 			return true
 		end
-		local steer_to = get_avoidance_dir(self, goal)
+		local steer_to = get_avoidance_dir(_self, goal)
 		-- Get movement direction
 		local goal_dir = vec_dir(pos, goal)
 		if steer_to then
 			goal_dir = steer_to
 		end
-		local yaw = self.object:get_yaw()
+		local yaw = _self.object:get_yaw()
 		local goal_yaw = dir2yaw(goal_dir)
-		local speed = abs(self.speed or 2) * speed_factor or 0.5
-		local turn_rate = abs(self.turn_rate or 5)
+		local speed = abs(_self.speed or 2) * speed_factor or 0.5
+		local turn_rate = abs(_self.turn_rate or 5)
 		-- Movement
 		local yaw_diff = abs(diff(yaw, goal_yaw))
 		if yaw_diff < pi * 0.25
 		or steer_to then
-			self:set_forward_velocity(speed)
+			_self:set_forward_velocity(speed)
 		else
-			self:set_forward_velocity(speed * 0.33)
+			_self:set_forward_velocity(speed * 0.33)
 		end
 		if yaw_diff > 0.1 then
-			self:turn_to(goal_yaw, turn_rate)
+			_self:turn_to(goal_yaw, turn_rate)
 		end
 	end
 	return func
