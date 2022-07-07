@@ -159,21 +159,18 @@ end
 
 -- Turn to specified yaw
 
+local function lerp_rad(a, b, w)
+    local cs = (1 - w) * cos(a) + w * cos(b)
+    local sn = (1 - w) * sin(a) + w * sin(b)
+    return atan2(sn, cs)
+end
+
 function mob:turn_to(tyaw, rate)
 	self._tyaw = tyaw
-	local weight = rate or 10
+	rate = rate or 5
 	local yaw = self.object:get_yaw()
-
-	yaw = yaw + pi
-	tyaw = (tyaw + pi) % pi2
-
-	local step = math.min(self.dtime * weight, abs(tyaw - yaw) % pi2)
-
-	local dir = abs(tyaw - yaw) > pi and -1 or 1
-	dir = tyaw > yaw and dir * 1 or dir * -1
-
-	local nyaw = (yaw + step * dir) % pi2
-	self.object:set_yaw(nyaw - pi)
+	local step = math.min(self.dtime * rate, abs(diff(yaw, tyaw)) % (pi2))
+	self.object:set_yaw(lerp_rad(yaw, tyaw, step))
 	self.last_yaw = self.object:get_yaw()
 end
 
@@ -383,6 +380,7 @@ end
 
 function mob:is_pos_safe(pos)
 	local mob_pos = self.object:get_pos()
+	if not pos then return end
 	local node = minetest.get_node(pos)
 	if not node then return false end
 	if minetest.get_item_group(node.name, "igniter") > 0
@@ -1102,29 +1100,30 @@ end
 function mob:_vitals()
 	local stand_pos = self.object:get_pos()
 	if not stand_pos then return end
-	local fall_start = self._fall_start
-	if self.is_falling
-	and not fall_start
-	and self.max_fall > 0 then
-		self._fall_start = stand_pos.y
-	elseif fall_start
-	and self.max_fall > 0 then
-		if self.touching_ground
-		and not self.in_liquid then
-			local damage = fall_start - stand_pos.y
-			if damage < (self.max_fall or 3) then
+	local max_fall = self.max_fall or 0
+	if max_fall > 0 then
+		local fall_start = self._fall_start
+		if self.is_falling
+		and not fall_start then
+			self._fall_start = stand_pos.y
+		elseif fall_start then
+			if self.touching_ground
+			and not self.in_liquid then
+				local damage = fall_start - stand_pos.y
+				if damage < max_fall then
+					self._fall_start = nil
+					return
+				end
+				local resist = self.fall_resistance or 0
+				self:hurt(damage - (damage * resist))
+				self:indicate_damage()
+				if random(4) < 2 then
+					self:play_sound("hurt")
+				end
 				self._fall_start = nil
-				return
+			elseif self.in_liquid then
+				self._fall_start = nil
 			end
-			local resist = self.fall_resistance or 0
-			self:hurt(damage - (damage * (resist * 0.1)))
-			self:indicate_damage()
-			if random(4) < 2 then
-				self:play_sound("hurt")
-			end
-			self._fall_start = nil
-		elseif self.in_liquid then
-			self._fall_start = nil
 		end
 	end
 	if self:timer(1) then

@@ -126,7 +126,15 @@ function creatura.action_move(self, pos2, timeout, method, speed_factor, anim)
 	local function func(_self)
 		timer = timer - _self.dtime
 		self:animate(anim or "walk")
+		local safe = true
+		if _self.max_fall
+		and _self.max_fall > 0 then
+			local pos = self.object:get_pos()
+			if not pos then return end
+			safe = _self:is_pos_safe(pos2)
+		end
 		if timer <= 0
+		or not safe
 		or _self:move_to(pos2, method or "creatura:obstacle_avoidance", speed_factor or 0.5) then
 			return true
 		end
