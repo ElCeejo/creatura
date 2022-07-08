@@ -45,11 +45,9 @@ local function is_value_in_table(tbl, val)
 	return false
 end
 
------------------------
--- Utility Functions --
------------------------
-
--- Movement Methods --
+----------------------------
+-- Registration Functions --
+----------------------------
 
 creatura.registered_movement_methods = {}
 
@@ -57,15 +55,47 @@ function creatura.register_movement_method(name, func)
 	creatura.registered_movement_methods[name] = func
 end
 
--- Utility Behaviors --
-
 creatura.registered_utilities = {}
 
 function creatura.register_utility(name, func)
 	creatura.registered_utilities[name] = func
 end
 
--- Sensors --
+---------------
+-- Utilities --
+---------------
+
+function creatura.is_valid(mob)
+	if not mob then return false end
+	if type(mob) == "table" then mob = mob.object end
+	if type(mob) == "userdata" then
+		if mob:is_player() then
+			if mob:get_look_horizontal() then return mob end
+		else
+			if mob:get_yaw() then return mob end
+		end
+	end
+	return false
+end
+
+function creatura.is_alive(mob)
+	if not creatura.is_valid(mob) then
+		return false
+	end
+	if type(mob) == "table" then
+		return mob.hp > 0
+	end
+	if mob:is_player() then
+		return mob:get_hp() > 0
+	else
+		local ent = mob:get_luaentity()
+		return ent and ent.hp and ent.hp > 0
+	end
+end
+
+------------------------
+-- Environment access --
+------------------------
 
 local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
 
@@ -323,36 +353,6 @@ function creatura.sensor_ceil(self, range, water)
 	return dist, node
 end
 
--- Misc
-
-function creatura.is_valid(mob)
-	if not mob then return false end
-	if type(mob) == "table" then mob = mob.object end
-	if type(mob) == "userdata" then
-		if mob:is_player() then
-			if mob:get_look_horizontal() then return mob end
-		else
-			if mob:get_yaw() then return mob end
-		end
-	end
-	return false
-end
-
-function creatura.is_alive(mob)
-	if not creatura.is_valid(mob) then
-		return false
-	end
-	if type(mob) == "table" then
-		return mob.hp > 0
-	end
-	if mob:is_player() then
-		return mob:get_hp() > 0
-	else
-		local ent = mob:get_luaentity()
-		return ent and ent.hp and ent.hp > 0
-	end
-end
-
 function creatura.get_nearby_player(self)
 	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), self.tracking_range)
 	for _, object in ipairs(objects) do
@@ -375,7 +375,7 @@ function creatura.get_nearby_players(self)
 	return nearby
 end
 
-function creatura.get_nearby_entity(self, name)
+function creatura.get_nearby_object(self, name)
 	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), self.tracking_range)
 	for _, object in ipairs(objects) do
 		if creatura.is_alive(object)
@@ -388,7 +388,7 @@ function creatura.get_nearby_entity(self, name)
 	return
 end
 
-function creatura.get_nearby_entities(self, name)
+function creatura.get_nearby_objects(self, name)
 	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), self.tracking_range)
 	local nearby = {}
 	for _, object in ipairs(objects) do
@@ -402,11 +402,12 @@ function creatura.get_nearby_entities(self, name)
 	return nearby
 end
 
+creatura.get_nearby_entity = creatura.get_nearby_object
+creatura.get_nearby_entities = creatura.get_nearby_objects
+
 --------------------
 -- Global Mob API --
 --------------------
-
--- Drops --
 
 function creatura.drop_items(self)
 	if not self.drops then return end
@@ -431,8 +432,6 @@ function creatura.drop_items(self)
 		end
 	end
 end
-
--- On Punch --
 
 function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_capabilities, direction, damage)
 	if not puncher then return end
