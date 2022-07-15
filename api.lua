@@ -443,8 +443,7 @@ function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_cap
 	and is_value_in_table(self.immune_to, tool)) then
 		return
 	end
-	local dir = vec_multi(direction, -1)
-	self:apply_knockback(dir)
+	self:apply_knockback(direction)
 	self:hurt((tool_capabilities.damage_groups.fleshy or damage) or 2)
 	if random(4) < 2 then
 		self:play_sound("hurt")
