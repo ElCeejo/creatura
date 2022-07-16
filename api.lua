@@ -19,7 +19,6 @@ local function clamp(val, min, max)
 end
 
 local vec_dist = vector.distance
-local vec_multi = vector.multiply
 local vec_equals = vector.equals
 local vec_add = vector.add
 
