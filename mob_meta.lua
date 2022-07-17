@@ -225,6 +225,7 @@ end
 function mob:hurt(health)
 	if self.protected then return end
 	self.hp = self.hp - math.ceil(health)
+	if self.hp < 0 then self.hp = 0 end
 end
 
 -- Add HP to mob
@@ -429,9 +430,16 @@ function mob:set_texture(id, tbl)
 	or not _table[id] then
 		return
 	end
-	self.object:set_properties({
-		textures = {_table[id]}
-	})
+	local tex = _table[id]
+	if type(tex) == "table" then
+		self.object:set_properties({
+			textures = {unpack(tex)}
+		})
+	else
+		self.object:set_properties({
+			textures = {tex}
+		})
+	end
 	return _table[id]
 end
 
@@ -696,7 +704,7 @@ function mob:activate(staticdata, dtime)
 
 	-- Initialize Stats and Visuals
 	if not self.textures then
-		local textures = self.properties.textures
+		local textures = minetest.registered_entities[self.name].textures
 		if textures then self.textures = textures end
 	end
 
@@ -706,7 +714,7 @@ function mob:activate(staticdata, dtime)
 		else
 			self.perm_data = {}
 		end
-		if #self.textures > 1 then self.texture_no = random(#self.textures) end
+		if #self.textures > 0 then self.texture_no = random(#self.textures) end
 	end
 
 	if self:recall("despawn_after") ~= nil then

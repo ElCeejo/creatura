@@ -19,6 +19,7 @@ local function clamp(val, min, max)
 end
 
 local vec_dist = vector.distance
+local vec_multi = vector.multiply
 local vec_equals = vector.equals
 local vec_add = vector.add
 
@@ -443,7 +444,16 @@ function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_cap
 		return
 	end
 	self:apply_knockback(direction)
-	self:hurt((tool_capabilities.damage_groups.fleshy or damage) or 2)
+	if not tool_capabilities
+	or not tool_capabilities.damage_groups
+	or not tool_capabilities.damage_groups.fleshy then
+		tool_capabilities = {
+			damage_groups = {
+				fleshy = 2
+			}
+		}
+	end
+	self:hurt(tool_capabilities.damage_groups.fleshy)
 	if random(4) < 2 then
 		self:play_sound("hurt")
 	end
