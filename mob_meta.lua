@@ -704,7 +704,7 @@ function mob:activate(staticdata, dtime)
 
 	-- Initialize Stats and Visuals
 	if not self.textures then
-		local textures = minetest.registered_entities[self.name].textures
+		local textures = self.properties.textures
 		if textures then self.textures = textures end
 	end
 
