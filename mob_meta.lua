@@ -935,9 +935,11 @@ local function water_physics(self)
 	local submergence = surface_pos.y - floor_pos.y
 	local vel = self.object:get_velocity()
 	local bouyancy = self.bouyancy_multiplier or 1
+	local accel = (submergence - vel.y * abs(vel.y) * 0.4) * bouyancy
+	if accel > 4.9 then accel = 4.9 end
 	self.object:set_acceleration({
 		x = 0,
-		y = (submergence - vel.y * abs(vel.y) * 0.4) * bouyancy,
+		y = accel,
 		z = 0
 	})
 	local hydrodynamics = self.hydrodynamics_multiplier or 0.7
