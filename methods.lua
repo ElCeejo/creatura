@@ -30,6 +30,11 @@ local vec_add = vector.add
 local yaw2dir = minetest.yaw_to_dir
 local dir2yaw = minetest.dir_to_yaw
 
+local function vec_raise(v, n)
+	if not v then return end
+	return {x = v.x, y = v.y + n, z = v.z}
+end
+
 --[[local function debugpart(pos, time, tex)
 	minetest.add_particle({
 		pos = pos,
@@ -198,7 +203,7 @@ creatura.register_movement_method("creatura:pathfind", function(self)
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
-		pos.y = creatura.get_ground_level(pos, 3).y
+		pos.y = pos.y + 0.5
 		-- Return true when goal is reached
 		if vec_dist(pos, goal) < box * 1.33 then
 			_self:halt()
@@ -245,7 +250,7 @@ creatura.register_movement_method("creatura:theta_pathfind", function(self)
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
-		pos.y = creatura.get_ground_level(pos, 3).y
+		pos.y = pos.y + 0.5
 		-- Return true when goal is reached
 		if vec_dist(pos, goal) < box * 1.33 then
 			_self:halt()
@@ -293,13 +298,14 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
+		goal.y = creatura.get_ground_level(goal, 2).y
 		pos.y = creatura.get_ground_level(pos, 2).y
 		-- Return true when goal is reached
 		if vec_dist(pos, goal) < box * 1.33 then
 			_self:halt()
 			return true
 		end
-		local steer_to = get_avoidance_dir(_self, goal)
+		--local steer_to = get_avoidance_dir(_self, goal)
 		-- Get movement direction
 		local goal_dir = vec_dir(pos, goal)
 		if steer_to then

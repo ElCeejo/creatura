@@ -19,6 +19,7 @@ local function clamp(val, min, max)
 end
 
 local vec_dist = vector.distance
+local vec_multi = vector.multiply
 local vec_equals = vector.equals
 local vec_add = vector.add
 
@@ -136,6 +137,7 @@ function creatura.get_node_def(node) -- Node can be name or pos
 end
 
 function creatura.get_ground_level(pos2, max_diff)
+	pos2.y = math.floor(pos2.y - 0.49)
 	local node = minetest.get_node(pos2)
 	local node_under = minetest.get_node({
 		x = pos2.x,
@@ -207,12 +209,15 @@ local moveable = creatura.is_pos_moveable
 
 function creatura.fast_ray_sight(pos1, pos2, water)
 	local ray = minetest.raycast(pos1, pos2, false, water or false)
-	for pointed_thing in ray do
-		if pointed_thing.type == "node" then
-			return false, vec_dist(pos1, pointed_thing.intersection_point), pointed_thing.ref
+	local pointed_thing = ray:next()
+	while pointed_thing do
+		if pointed_thing.type == "node"
+		and creatura.get_node_def(pointed_thing.under).walkable then
+			return false, vec_dist(pos1, pointed_thing.intersection_point), pointed_thing.ref, pointed_thing.intersection_point
 		end
+		pointed_thing = ray:next()
 	end
-	return true, vec_dist(pos1, pos2)
+	return true, vec_dist(pos1, pos2), false, pos2
 end
 
 local fast_ray_sight = creatura.fast_ray_sight
@@ -432,7 +437,7 @@ function creatura.drop_items(self)
 	end
 end
 
-function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_capabilities, direction)
+function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_capabilities, direction, damage)
 	if not puncher then return end
 	local tool = ""
 	if puncher:is_player() then
