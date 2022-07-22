@@ -166,12 +166,12 @@ local function lerp_rad(a, b, w)
 end
 
 function mob:turn_to(tyaw, rate)
+	self.last_yaw = self.object:get_yaw()
 	self._tyaw = tyaw
 	rate = rate or 5
 	local yaw = self.object:get_yaw()
 	local step = math.min(self.dtime * rate, abs(diff(yaw, tyaw)) % (pi2))
 	self.object:set_yaw(lerp_rad(yaw, tyaw, step))
-	self.last_yaw = self.object:get_yaw()
 end
 
 -- Set Gravity (default of -9.8)

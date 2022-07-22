@@ -19,7 +19,6 @@ local function clamp(val, min, max)
 end
 
 local vec_dist = vector.distance
-local vec_multi = vector.multiply
 local vec_equals = vector.equals
 local vec_add = vector.add
 
@@ -437,7 +436,7 @@ function creatura.drop_items(self)
 	end
 end
 
-function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_capabilities, direction, damage)
+function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_capabilities, direction)
 	if not puncher then return end
 	local tool = ""
 	if puncher:is_player() then

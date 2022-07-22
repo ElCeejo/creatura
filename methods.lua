@@ -305,7 +305,7 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 			_self:halt()
 			return true
 		end
-		--local steer_to = get_avoidance_dir(_self, goal)
+		local steer_to = get_avoidance_dir(_self, goal)
 		-- Get movement direction
 		local goal_dir = vec_dir(pos, goal)
 		if steer_to then
