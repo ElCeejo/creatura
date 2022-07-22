@@ -30,11 +30,6 @@ local vec_add = vector.add
 local yaw2dir = minetest.yaw_to_dir
 local dir2yaw = minetest.dir_to_yaw
 
-local function vec_raise(v, n)
-	if not v then return end
-	return {x = v.x, y = v.y + n, z = v.z}
-end
-
 --[[local function debugpart(pos, time, tex)
 	minetest.add_particle({
 		pos = pos,
