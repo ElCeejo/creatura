@@ -23,6 +23,8 @@ local function clamp(val, min, max)
 	return val
 end
 
+local vec_normal = vector.normalize
+local vec_len = vector.length
 local vec_dist = vector.distance
 local vec_dir = vector.direction
 local vec_multi = vector.multiply
@@ -57,8 +59,8 @@ local function raycast(pos1, pos2, liquid)
 end
 
 local function get_collision(self, yaw)
-	local width = self.width
-	local height = self.height
+	local width = self.width + 0.5
+	local height = self.height + 0.5
 	local total_height = height + self.stepheight
 	local pos = self.object:get_pos()
 	if not pos then return end
@@ -107,8 +109,11 @@ local function get_avoidance_dir(self)
 	if not pos then return end
 	local collide, col_pos = get_collision(self, self.object:get_yaw())
 	if collide then
-		local avoid_dir = vec_dir(col_pos, pos)
-		return vec_multi(avoid_dir, self.width)
+		local vel = self.object:get_velocity()
+		local ahead = vec_add(pos, vec_normal(self.object:get_velocity()))
+		local avoidance_force = vector.subtract(ahead, col_pos)
+		avoidance_force = vec_normal(avoidance_force) * vec_len(vel)
+		return vec_dir(pos, vec_add(ahead, avoidance_force))
 	end
 end
 
@@ -191,31 +196,63 @@ end
 
 -- Pathfinding
 
+local function trim_path(pos, path)
+	if #path < 2 then return end
+	local trim = false
+	local closest
+	for i = #path, 1, -1 do
+		if (closest
+		and vec_dist(pos, path[i]) > vec_dist(pos, path[closest]))
+		or trim then
+			table.remove(path, i)
+			trim = true
+		else
+			closest = i
+		end
+	end
+	return path
+end
+
 creatura.register_movement_method("creatura:pathfind", function(self)
 	local path = {}
 	local box = clamp(self.width, 0.5, 1.5)
 	self:set_gravity(-9.8)
+	local trimmed = false
+	local init_path = false
+	local tick = 4
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
-		pos.y = pos.y + 0.5
 		-- Return true when goal is reached
 		if vec_dist(pos, goal) < box * 1.33 then
 			_self:halt()
 			return true
 		end
 		-- Get movement direction
-		local steer_to = get_avoidance_dir(_self, goal, speed_factor)
+		local steer_to
+		tick = tick - 1
+		if tick <= 0 then
+			steer_to = get_avoidance_dir(self, goal)
+			tick = 4
+		end
 		local goal_dir = vec_dir(pos, goal)
-		if steer_to then
+		if steer_to
+		and not init_path then
 			goal_dir = steer_to
-			if #path < 2 then
-				path = creatura.find_path(_self, pos, goal, _self.width, _self.height, 200) or {}
-			end
+			init_path = true
+		end
+		if init_path
+		and #path < 2 then
+			path = creatura.find_lvm_path(_self, pos, goal, _self.width, _self.height, 400) or {}
 		end
 		if #path > 1 then
+			if not trimmed then
+				path = trim_path(pos, path)
+				trimmed = true
+				if #path < 2 then return end
+			end
 			goal_dir = vec_dir(pos, path[2])
-			if vec_dist(pos, path[1]) < box then
+			if vec_dist(vector.round(pos), creatura.get_ground_level(path[1], 1)) < box then
 				table.remove(path, 1)
 			end
 		end

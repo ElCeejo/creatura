@@ -166,7 +166,6 @@ local function lerp_rad(a, b, w)
 end
 
 function mob:turn_to(tyaw, rate)
-	self.last_yaw = self.object:get_yaw()
 	self._tyaw = tyaw
 	rate = rate or 5
 	local yaw = self.object:get_yaw()
@@ -769,6 +768,7 @@ end
 
 function mob:on_step(dtime, moveresult)
 	if not self.hp then return end
+	self.last_yaw = self.object:get_yaw()
 	self.dtime = dtime or 0.09
 	self.moveresult = moveresult or {}
 	self.touching_ground = false
