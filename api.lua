@@ -436,7 +436,7 @@ function creatura.drop_items(self)
 	end
 end
 
-function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_capabilities, direction)
+function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 	if not puncher then return end
 	local tool = ""
 	if puncher:is_player() then
@@ -446,21 +446,21 @@ function creatura.basic_punch_func(self, puncher, time_from_last_punch, tool_cap
 	and is_value_in_table(self.immune_to, tool)) then
 		return
 	end
-	self:apply_knockback(direction)
-	if not tool_capabilities
-	or not tool_capabilities.damage_groups
-	or not tool_capabilities.damage_groups.fleshy then
-		tool_capabilities = {
+	self:apply_knockback(dir, 12)
+	if not tool_caps
+	or not tool_caps.damage_groups
+	or not tool_caps.damage_groups.fleshy then
+		tool_caps = {
 			damage_groups = {
 				fleshy = 2
 			}
 		}
 	end
-	self:hurt(tool_capabilities.damage_groups.fleshy)
+	self:hurt(tool_caps.damage_groups.fleshy)
 	if random(4) < 2 then
 		self:play_sound("hurt")
 	end
-	if time_from_last_punch > 0.5 then
+	if tflp > 0.5 then
 		self:play_sound("hit")
 	end
 	self:indicate_damage()
