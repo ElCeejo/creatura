@@ -67,25 +67,23 @@ minetest.register_globalstep(function(dtime)
 	step_tick = step_tick - dtime
 end)
 
--- A metatable is used to avoid issues
--- With mobs performing functions outside
--- their own scope
-
 local mob = {
-	-- Stats
 	max_health = 20,
 	armor_groups = {fleshy = 100},
 	damage = 2,
 	speed = 4,
 	tracking_range = 16,
 	despawn_after = nil,
-	-- Physics
 	max_fall = 3,
 	stepheight = 1.1,
 	hitbox = {
 		width = 0.5,
 		height = 1
 	},
+	follow = {},
+	fancy_collide = false,
+	bouyancy_multiplier = 1,
+	hydrodynamics_multiplier = 1
 }
 
 local mob_meta = {__index = mob}
@@ -159,7 +157,7 @@ end
 
 -- Turn to specified yaw
 
-local function lerp_rad(a, b, w)
+local function interp_rad(a, b, w)
     local cs = (1 - w) * cos(a) + w * cos(b)
     local sn = (1 - w) * sin(a) + w * sin(b)
     return atan2(sn, cs)
@@ -170,7 +168,7 @@ function mob:turn_to(tyaw, rate)
 	rate = rate or 5
 	local yaw = self.object:get_yaw()
 	local step = math.min(self.dtime * rate, abs(diff(yaw, tyaw)) % (pi2))
-	self.object:set_yaw(lerp_rad(yaw, tyaw, step))
+	self.object:set_yaw(interp_rad(yaw, tyaw, step))
 end
 
 -- Set Gravity (default of -9.8)
@@ -1093,7 +1091,6 @@ function mob:_execute_utilities()
 			}
 			self:clear_action()
 		end
-		--local us_time = minetest.get_us_time()
 		local action = self._action
 		if action
 		and type(action) ~= "table" then
@@ -1101,7 +1098,6 @@ function mob:_execute_utilities()
 				self:clear_action()
 			end
 		end
-		--minetest.chat_send_all(minetest.get_us_time() - us_time)
 	end
 end
 

@@ -57,7 +57,7 @@ function creatura.register_spawn_egg(name, col1, col2, inventory_image) -- depre
 			local mobdef = minetest.registered_entities[name]
 			local spawn_offset = abs(mobdef.collisionbox[2])
 			local pos = minetest.get_pointed_thing_position(pointed_thing, true)
-			pos.y = (pos.y - 0.49) + spawn_offset
+			pos.y = (pos.y - 0.4) + spawn_offset
 			local object = minetest.add_entity(pos, name)
 			if object then
 				object:set_yaw(random(1, 6))
@@ -245,6 +245,14 @@ local function execute_spawns(player)
 				return
 			end
 
+			local mob_def = minetest.registered_entities[mob]
+			local mob_width = mob_def.collisionbox[4]
+			local mob_height = math.max(0, mob_def.collisionbox[5] - mob_def.collisionbox[2])
+
+			if not creatura.is_pos_moveable(spawn_pos, mob_width, mob_height) then
+				return
+			end
+
 			local group_size = random(spawn.min_group or 1, spawn.max_group or 1)
 
 			if spawn.spawn_cluster then
@@ -290,7 +298,8 @@ end)
 
 minetest.register_node("creatura:spawn_node", {
 	drawtype = "airlike",
-	groups = {not_in_creative_inventory = 1}
+	groups = {not_in_creative_inventory = 1},
+	walkable = false
 })
 
 local spawn_interval = tonumber(minetest.settings:get("creatura_spawn_interval")) or 10

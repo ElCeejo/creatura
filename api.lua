@@ -135,7 +135,8 @@ function creatura.get_node_def(node) -- Node can be name or pos
 	return def
 end
 
-function creatura.get_ground_level(pos2, max_diff)
+function creatura.get_ground_level(pos, max_diff)
+	local pos2 = pos -- Prevent modifying table that shouldn't be changed
 	pos2.y = math.floor(pos2.y - 0.49)
 	local node = minetest.get_node(pos2)
 	local node_under = minetest.get_node({

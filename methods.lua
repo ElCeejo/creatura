@@ -38,7 +38,7 @@ local dir2yaw = minetest.dir_to_yaw
 		texture = tex or "creatura_particle_red.png",
 		expirationtime = time or 3,
 		glow = 6,
-		size = 12
+		size = 1
 	})
 end]]
 
@@ -59,20 +59,17 @@ local function raycast(pos1, pos2, liquid)
 end
 
 local function get_collision(self, yaw)
-	local width = self.width + 0.5
-	local height = self.height + 0.5
+	local width = self.width
+	local height = self.height
 	local total_height = height + self.stepheight
 	local pos = self.object:get_pos()
 	if not pos then return end
-	local ground = creatura.get_ground_level(pos, (self.stepheight or 2))
-	if ground.y > pos.y then
-		pos = ground
-	end
-	local pos2 = vec_add(pos, vec_multi(yaw2dir(yaw), width + 3))
-	ground = creatura.get_ground_level(pos2, (self.stepheight or 2))
-	if ground.y > pos2.y then
-		pos2 = ground
-	end
+	pos.y = pos.y + 0.1
+	local speed = abs(vec_len(self.object:get_velocity()))
+	local pos2 = vec_add(pos, vec_multi(yaw2dir(yaw), (width + 0.5) * ((speed > 1 and speed) or 1)))
+	-- Localize for performance
+	local pos_x, pos_z = pos.x, pos.z
+	local pos2_x, pos2_z = pos2.x, pos2.z
 	for x = -width, width, width / ceil(width) do
 		local step_flag = false
 		for y = 0, total_height, total_height / ceil(total_height) do
@@ -81,14 +78,14 @@ local function get_collision(self, yaw)
 				break
 			end
 			local vec1 = {
-				x = cos(yaw) * ((pos.x + x) - pos.x) + pos.x,
+				x = cos(yaw) * ((pos_x + x) - pos_x) + pos_x,
 				y = pos.y + y,
-				z = sin(yaw) * ((pos.x + x) - pos.x) + pos.z
+				z = sin(yaw) * ((pos_x + x) - pos_x) + pos_z
 			}
 			local vec2 = {
-				x = cos(yaw) * ((pos2.x + x) - pos2.x) + pos2.x,
+				x = cos(yaw) * ((pos2_x + x) - pos2_x) + pos2_x,
 				y = vec1.y,
-				z = sin(yaw) * ((pos2.x + x) - pos2.x) + pos2.z
+				z = sin(yaw) * ((pos2_x + x) - pos2_x) + pos2_z
 			}
 			local ray = raycast(vec1, vec2, true)
 			if ray then
@@ -101,6 +98,14 @@ local function get_collision(self, yaw)
 			end
 		end
 	end
+	--[[if width > 0.5
+	and height > 0.5 then
+	else
+		local ray = raycast(pos, pos2, true)
+		if ray then
+			return true, ray.intersection_point
+		end
+	end]]
 	return false
 end
 
@@ -112,7 +117,9 @@ local function get_avoidance_dir(self)
 		local vel = self.object:get_velocity()
 		local ahead = vec_add(pos, vec_normal(self.object:get_velocity()))
 		local avoidance_force = vector.subtract(ahead, col_pos)
-		avoidance_force = vec_multi(vec_normal(avoidance_force), vec_len(vel))
+		avoidance_force.y = 0
+		local vel_len = vec_len(vel)
+		avoidance_force = vec_multi(vec_normal(avoidance_force), (vel_len > 1 and vel_len) or 1)
 		return vec_dir(pos, vec_add(ahead, avoidance_force))
 	end
 end
@@ -201,6 +208,7 @@ local function trim_path(pos, path)
 	local trim = false
 	local closest
 	for i = #path, 1, -1 do
+		if not path[i] then break end
 		if (closest
 		and vec_dist(pos, path[i]) > vec_dist(pos, path[closest]))
 		or trim then
@@ -327,6 +335,8 @@ end)
 creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 	local box = clamp(self.width, 0.5, 1.5)
 	self:set_gravity(-9.8)
+	local steer_to
+	local steer_timer = 0.25
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
@@ -337,7 +347,10 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 			_self:halt()
 			return true
 		end
-		local steer_to = get_avoidance_dir(_self, goal)
+		steer_timer = steer_timer - self.dtime
+		if steer_timer <= 0 then
+			steer_to = get_avoidance_dir(_self)
+		end
 		-- Get movement direction
 		local goal_dir = vec_dir(pos, goal)
 		if steer_to then
@@ -355,9 +368,7 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 		else
 			_self:set_forward_velocity(speed * 0.33)
 		end
-		if yaw_diff > 0.1 then
-			_self:turn_to(goal_yaw, turn_rate)
-		end
+		_self:turn_to(goal_yaw, turn_rate)
 	end
 	return func
 end)
