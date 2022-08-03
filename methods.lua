@@ -112,7 +112,7 @@ local function get_avoidance_dir(self)
 		local vel = self.object:get_velocity()
 		local ahead = vec_add(pos, vec_normal(self.object:get_velocity()))
 		local avoidance_force = vector.subtract(ahead, col_pos)
-		avoidance_force = vec_normal(avoidance_force) * vec_len(vel)
+		avoidance_force = vec_multi(vec_normal(avoidance_force), vec_len(vel))
 		return vec_dir(pos, vec_add(ahead, avoidance_force))
 	end
 end
