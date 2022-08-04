@@ -439,12 +439,14 @@ end
 
 function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 	if not puncher then return end
-	local tool = ""
+	local tool
+	local tool_name = ""
 	if puncher:is_player() then
-		tool = puncher:get_wielded_item():get_name()
+		tool = puncher:get_wielded_item()
+		tool_name = tool:get_name()
 	end
 	if (self.immune_to
-	and is_value_in_table(self.immune_to, tool)) then
+	and is_value_in_table(self.immune_to, tool_name)) then
 		return
 	end
 	self:apply_knockback(dir, 8)
@@ -459,10 +461,11 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 		}
 	end
 	self:hurt(tool_caps.damage_groups.fleshy)
-	local wear = floor((tool_caps.damage_groups.full_punch_interval / 75) * 9000)
-	local tool = puncher:get_wielded_item()
-	tool:add_wear(wear)
-	puncher:set_wielded_item(tool)
+	if tool then
+		local wear = floor((tool_caps.damage_groups.full_punch_interval / 75) * 9000)
+		tool:add_wear(wear)
+		puncher:set_wielded_item(tool)
+	end
 	if random(4) < 2 then
 		self:play_sound("hurt")
 	end
