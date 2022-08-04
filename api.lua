@@ -441,9 +441,11 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 	if not puncher then return end
 	local tool
 	local tool_name = ""
+	local add_wear = false
 	if puncher:is_player() then
 		tool = puncher:get_wielded_item()
 		tool_name = tool:get_name()
+		add_wear = not minetest.is_creative_enabled(target)
 	end
 	if (self.immune_to
 	and is_value_in_table(self.immune_to, tool_name)) then
@@ -461,7 +463,7 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 		}
 	end
 	self:hurt(tool_caps.damage_groups.fleshy)
-	if tool then
+	if add_wear then
 		local wear = floor((tool_caps.damage_groups.full_punch_interval / 75) * 9000)
 		tool:add_wear(wear)
 		puncher:set_wielded_item(tool)
