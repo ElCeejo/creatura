@@ -445,13 +445,13 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 	if puncher:is_player() then
 		tool = puncher:get_wielded_item()
 		tool_name = tool:get_name()
-		add_wear = not minetest.is_creative_enabled(target)
+		add_wear = not minetest.is_creative_enabled(puncher)
 	end
 	if (self.immune_to
 	and is_value_in_table(self.immune_to, tool_name)) then
 		return
 	end
-	self:apply_knockback(dir, 8)
+	self:apply_knockback(dir, 12)
 	if not tool_caps
 	or not tool_caps.damage_groups
 	or not tool_caps.damage_groups.fleshy then
