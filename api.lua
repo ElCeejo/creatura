@@ -464,7 +464,7 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 	end
 	self:hurt(tool_caps.damage_groups.fleshy)
 	if add_wear then
-		local wear = floor((tool_caps.damage_groups.full_punch_interval / 75) * 9000)
+		local wear = floor((tool_caps.full_punch_interval / 75) * 9000)
 		tool:add_wear(wear)
 		puncher:set_wielded_item(tool)
 	end
