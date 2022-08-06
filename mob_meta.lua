@@ -1106,7 +1106,7 @@ function mob:_execute_utilities()
 			end
 		end
 		local dtime = self.dtime
-		self.dtime = dtime + self.step_delay
+		self.dtime = dtime + (self.step_delay or 0)
 		if func(self) then
 			self._utility_data = {
 				utility = nil,
