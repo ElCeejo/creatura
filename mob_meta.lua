@@ -152,6 +152,7 @@ function mob:halt()
 		gravity = self._movement_data.gravity or -9.8,
 		speed = 0
 	}
+	--self.object:set_velocity({x = 0, y = 0, z = 0})
 	self._path_data = {}
 end
 
@@ -163,17 +164,31 @@ local function interp_rad(a, b, w)
     return atan2(sn, cs)
 end
 
+local function turn(self, tyaw, rate)
+	local rate = rate or 5
+	local rot = self.object:get_rotation()
+	local yaw = self.object:get_yaw()
+	if not yaw then return end
+	local step = math.min(self.dtime * rate, abs(diff(yaw, tyaw)) % (pi2))
+	rot.y = interp_rad(yaw, tyaw, step)
+	self.object:set_rotation(rot)
+end
+
 function mob:turn_to(tyaw, rate)
-	self._tyaw = tyaw
-	self._movement_data.turn_rate = rate or 5
+	if self.step_delay then
+		self._tyaw = tyaw
+		self._movement_data.turn_rate = rate or 5
+		return
+	end
+	turn(self, tyaw, rate)
 end
 
 function mob:do_turn()
+	if not self.step_delay then return end
 	local tyaw = self._tyaw
 	local rate = self._movement_data.turn_rate or 5
-	local yaw = self.object:get_yaw()
-	local step = math.min(self.dtime * rate, abs(diff(yaw, tyaw)) % (pi2))
-	self.object:set_yaw(interp_rad(yaw, tyaw, step))
+	if not tyaw then return end
+	turn(self, self._tyaw, rate)
 end
 
 -- Set Gravity (default of -9.8)
@@ -184,19 +199,27 @@ end
 
 -- Sets Velocity to desired speed in mobs current look direction
 
-function mob:set_forward_velocity(_speed)
-	local speed = _speed or self._movement_data.speed
-	local dir = minetest.yaw_to_dir(self.object:get_yaw())
-	local vel = vec_multi(dir, speed)
-	vel.y = self.object:get_velocity().y
-	self.object:set_velocity(vel)
+function mob:set_forward_velocity(speed)
+	self._movement_data.horz_vel = speed
 end
 
 -- Sets Velocity on y axis
 
 function mob:set_vertical_velocity(speed)
-	local vel = self.object:get_velocity() or {x = 0, y = 0, z = 0}
-	vel.y = speed
+	self._movement_data.vert_vel = speed
+end
+
+function mob:do_velocity()
+	local data = self._movement_data or {}
+	local vel = self.object:get_velocity()
+	local yaw = self.object:get_yaw()
+	if not yaw then return end
+	local dir = minetest.yaw_to_dir(yaw)
+	local horz_vel = data.horz_vel
+	local vert_vel = data.vert_vel
+	vel.x = (horz_vel and horz_vel * dir.x) or vel.x
+	vel.y = vert_vel or vel.y
+	vel.z = (horz_vel and horz_vel * dir.z) or vel.z
 	self.object:set_velocity(vel)
 end
 
@@ -795,13 +818,11 @@ function mob:on_step(dtime, moveresult)
 			self:_physics(moveresult)
 		end
 	end
+	self:do_velocity()
+	self:do_turn()
 	if self.utility_stack
 	and self._execute_utilities then
 		self:_execute_utilities()
-	end
-	local turn = self._movement_data and self._movement_data.func ~= nil
-	if turn then
-		self:do_turn()
 	end
 	-- Die
 	if self.hp <= 0
@@ -1107,6 +1128,8 @@ function mob:_execute_utilities()
 		end
 		local dtime = self.dtime
 		self.dtime = dtime + (self.step_delay or 0)
+		self:set_forward_velocity(nil)
+		self:set_vertical_velocity(nil)
 		if func(self) then
 			self._utility_data = {
 				utility = nil,
