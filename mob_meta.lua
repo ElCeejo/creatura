@@ -165,7 +165,12 @@ end
 
 function mob:turn_to(tyaw, rate)
 	self._tyaw = tyaw
-	rate = rate or 5
+	self._movement_data.turn_rate = rate or 5
+end
+
+function mob:do_turn()
+	local tyaw = self._tyaw
+	local rate = self._movement_data.turn_rate or 5
 	local yaw = self.object:get_yaw()
 	local step = math.min(self.dtime * rate, abs(diff(yaw, tyaw)) % (pi2))
 	self.object:set_yaw(interp_rad(yaw, tyaw, step))
@@ -774,10 +779,7 @@ function mob:on_step(dtime, moveresult)
 		self.touching_ground = moveresult.touching_ground
 	end
 	if step_tick <= 0 then
-		-- Physics and Vitals
-		if self._physics then
-			self:_physics(moveresult)
-		end
+		-- Vitals
 		if self._vitals then
 			self:_vitals()
 		end
@@ -786,9 +788,20 @@ function mob:on_step(dtime, moveresult)
 		self.width = self:get_hitbox()[4] or 0.5
 		self.height = self:get_height() or 1
 	end
+	local step_delay = self.step_delay and (self._step_delay or 0)
+	if (step_delay or step_tick) <= 0 then
+		-- Physics
+		if self._physics then
+			self:_physics(moveresult)
+		end
+	end
 	if self.utility_stack
 	and self._execute_utilities then
 		self:_execute_utilities()
+	end
+	local turn = self._movement_data and self._movement_data.func ~= nil
+	if turn then
+		self:do_turn()
 	end
 	-- Die
 	if self.hp <= 0
@@ -1082,7 +1095,18 @@ function mob:_execute_utilities()
 			self:initiate_utility(self._utility_data.utility, unpack(self._utility_data.args))
 		end
 		local func = self._utility_data.func
+		local step_delay = self.step_delay and (self._step_delay or 0)
 		if not func then return end
+		if step_delay then
+			if step_delay > 0 then
+				self._step_delay = step_delay - self.dtime
+				return
+			else
+				self._step_delay = self.step_delay
+			end
+		end
+		local dtime = self.dtime
+		self.dtime = dtime + self.step_delay
 		if func(self) then
 			self._utility_data = {
 				utility = nil,
@@ -1098,6 +1122,7 @@ function mob:_execute_utilities()
 				self:clear_action()
 			end
 		end
+		self.dtime = dtime
 	end
 end
 

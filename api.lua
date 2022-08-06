@@ -357,8 +357,8 @@ function creatura.sensor_ceil(self, range, water)
 	return dist, node
 end
 
-function creatura.get_nearby_player(self)
-	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), self.tracking_range)
+function creatura.get_nearby_player(self, range)
+	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
 	for _, object in ipairs(objects) do
 		if object:is_player()
 		and creatura.is_alive(object) then
@@ -367,8 +367,8 @@ function creatura.get_nearby_player(self)
 	end
 end
 
-function creatura.get_nearby_players(self)
-	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), self.tracking_range)
+function creatura.get_nearby_players(self, range)
+	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
 	local nearby = {}
 	for _, object in ipairs(objects) do
 		if object:is_player()
@@ -379,12 +379,13 @@ function creatura.get_nearby_players(self)
 	return nearby
 end
 
-function creatura.get_nearby_object(self, name)
-	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), self.tracking_range)
+function creatura.get_nearby_object(self, name, range)
+	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
 	for _, object in ipairs(objects) do
 		if creatura.is_alive(object)
 		and not object:is_player()
 		and object ~= self.object
+		and not object:get_luaentity()._ignore
 		and object:get_luaentity().name == name then
 			return object
 		end
@@ -392,13 +393,14 @@ function creatura.get_nearby_object(self, name)
 	return
 end
 
-function creatura.get_nearby_objects(self, name)
-	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), self.tracking_range)
+function creatura.get_nearby_objects(self, name, range)
+	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
 	local nearby = {}
 	for _, object in ipairs(objects) do
 		if creatura.is_alive(object)
 		and not object:is_player()
 		and object ~= self.object
+		and not object:get_luaentity()._ignore
 		and object:get_luaentity().name == name then
 			table.insert(nearby, object)
 		end

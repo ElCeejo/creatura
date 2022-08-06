@@ -134,5 +134,5 @@ function creatura.get_boid_angle(self, _boids, range)
 		table.insert(vert_params, vert_cohesion + (lift - vert_cohesion) * 0.1)
 	end
 	self.boid_heading = nil
-	return average_angle(params), average_angle(vert_params)
+	return average_angle(params), average(vert_params)
 end

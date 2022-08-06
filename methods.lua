@@ -227,7 +227,6 @@ creatura.register_movement_method("creatura:pathfind", function(self)
 	self:set_gravity(-9.8)
 	local trimmed = false
 	local init_path = false
-	local tick = 4
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
@@ -237,12 +236,7 @@ creatura.register_movement_method("creatura:pathfind", function(self)
 			return true
 		end
 		-- Get movement direction
-		local steer_to
-		tick = tick - 1
-		if tick <= 0 then
-			steer_to = get_avoidance_dir(self, goal)
-			tick = 4
-		end
+		local steer_to = get_avoidance_dir(self, goal)
 		local goal_dir = vec_dir(pos, goal)
 		if steer_to
 		and not init_path then
@@ -335,8 +329,6 @@ end)
 creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 	local box = clamp(self.width, 0.5, 1.5)
 	self:set_gravity(-9.8)
-	local steer_to
-	local steer_timer = 0.25
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
@@ -347,12 +339,9 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 			_self:halt()
 			return true
 		end
-		steer_timer = steer_timer - self.dtime
-		if steer_timer <= 0 then
-			steer_to = get_avoidance_dir(_self)
-		end
 		-- Get movement direction
 		local goal_dir = vec_dir(pos, goal)
+		local steer_to = get_avoidance_dir(self, goal)
 		if steer_to then
 			goal_dir = steer_to
 		end
