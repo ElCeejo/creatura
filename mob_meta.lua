@@ -666,6 +666,10 @@ function mob:set_utility_score(n)
 	self._utility_data.score = n or 0
 end
 
+function mob:get_utility_score(n)
+	return (self._utility_data and self._utility_data.score) or 0
+end
+
 function mob:try_initiate_utility(utility, score, ...)
 	if self._utility_data
 	and score >= self._utility_data.score then
@@ -802,6 +806,10 @@ function mob:on_step(dtime, moveresult)
 		self.touching_ground = moveresult.touching_ground
 	end
 	if step_tick <= 0 then
+		-- Physics
+		if self._physics then
+			self:_physics(moveresult)
+		end
 		-- Vitals
 		if self._vitals then
 			self:_vitals()
@@ -810,13 +818,6 @@ function mob:on_step(dtime, moveresult)
 		self.properties = self.object:get_properties()
 		self.width = self:get_hitbox()[4] or 0.5
 		self.height = self:get_height() or 1
-	end
-	local step_delay = self.step_delay and (self._step_delay or 0)
-	if (step_delay or step_tick) <= 0 then
-		-- Physics
-		if self._physics then
-			self:_physics(moveresult)
-		end
 	end
 	self:do_velocity()
 	self:do_turn()
@@ -1060,12 +1061,14 @@ function mob:_execute_utilities()
 		self._utility_data = {
 			utility = nil,
 			func = nil,
+			step_delay = nil,
 			score = 0
 		}
 	end
 	local loop_data = {
 		utility = nil,
 		func = nil,
+		step_delay = nil,
 		score = 0
 	}
 	if (self:timer(self.util_timer or 1)
@@ -1074,6 +1077,7 @@ function mob:_execute_utilities()
 		for i = 1, #self.utility_stack do
 			local utility = self.utility_stack[i].utility
 			local get_score = self.utility_stack[i].get_score
+			local step_delay = self.utility_stack[i].step_delay
 			local score, args = get_score(self)
 			if self._utility_data.utility
 			and utility == self._utility_data.utility
@@ -1082,6 +1086,7 @@ function mob:_execute_utilities()
 				self._utility_data = {
 					utility = nil,
 					func = nil,
+					step_delay = nil,
 					score = 0
 				}
 			end
@@ -1091,6 +1096,7 @@ function mob:_execute_utilities()
 				loop_data = {
 					utility = utility,
 					score = score,
+					step_delay = step_delay,
 					args = args
 				}
 			end
@@ -1112,10 +1118,17 @@ function mob:_execute_utilities()
 		end
 	end
 	if self._utility_data.utility then
-		if not self._utility_data.func then
-			self:initiate_utility(self._utility_data.utility, unpack(self._utility_data.args))
+		local util_data = self._utility_data
+		if not util_data.func then
+			self:initiate_utility(util_data.utility, unpack(util_data.args))
 		end
-		local func = self._utility_data.func
+		local func = util_data.func
+		if util_data.step_delay then
+			self.step_delay = util_data.step_delay
+		else
+			self.step_delay = nil
+			self._step_delay = 0
+		end
 		local step_delay = self.step_delay and (self._step_delay or 0)
 		if not func then return end
 		if step_delay then
