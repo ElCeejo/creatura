@@ -1123,7 +1123,8 @@ function mob:_execute_utilities()
 			self:initiate_utility(util_data.utility, unpack(util_data.args))
 		end
 		local func = util_data.func
-		if util_data.step_delay then
+		if util_data.step_delay
+		and self.hp > 0 then
 			self.step_delay = util_data.step_delay
 		else
 			self.step_delay = nil
