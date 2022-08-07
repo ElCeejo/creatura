@@ -165,7 +165,7 @@ local function interp_rad(a, b, w)
 end
 
 local function turn(self, tyaw, rate)
-	local rate = rate or 5
+	rate = rate or 5
 	local rot = self.object:get_rotation()
 	local yaw = self.object:get_yaw()
 	if not yaw then return end
@@ -666,7 +666,7 @@ function mob:set_utility_score(n)
 	self._utility_data.score = n or 0
 end
 
-function mob:get_utility_score(n)
+function mob:get_utility_score()
 	return (self._utility_data and self._utility_data.score) or 0
 end
 
