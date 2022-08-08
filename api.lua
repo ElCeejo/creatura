@@ -380,7 +380,7 @@ end
 function creatura.get_nearby_object(self, name, range)
 	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
 	for _, object in ipairs(objects) do
-		local ent = creatura.is_alive(ent) and object:get_luaentity()
+		local ent = creatura.is_alive(object) and object:get_luaentity()
 		if ent
 		and object ~= self.object
 		and not ent._ignore
@@ -395,7 +395,7 @@ function creatura.get_nearby_objects(self, name, range)
 	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
 	local nearby = {}
 	for _, object in ipairs(objects) do
-		local ent = creatura.is_alive(ent) and object:get_luaentity()
+		local ent = creatura.is_alive(object) and object:get_luaentity()
 		if ent
 		and object ~= self.object
 		and not ent._ignore
