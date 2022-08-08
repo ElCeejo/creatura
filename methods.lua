@@ -58,7 +58,7 @@ local function raycast(pos1, pos2, liquid)
 	end
 end
 
-local function get_collision(self, yaw)
+--[[local function get_collision(self, yaw)
 	local width = self.width
 	local height = self.height
 	local total_height = height + self.stepheight
@@ -98,22 +98,50 @@ local function get_collision(self, yaw)
 			end
 		end
 	end
-	--[[if width > 0.5
-	and height > 0.5 then
-	else
-		local ray = raycast(pos, pos2, true)
+	return false
+end]]
+
+local function get_collision(self)
+	local yaw = self.object:get_yaw()
+	local pos = self.object:get_pos()
+	if not pos then return end
+	local width = self.width
+	local height = self.height
+	pos.y = pos.y + 0.01
+	local m_dir = vec_normal(yaw2dir(yaw))
+	local ahead = vec_add(pos, vec_multi(m_dir, width + 1)) -- 1 node out from edge of box
+	-- Loop
+	local pos_x, pos_z = ahead.x, ahead.z
+	for x = -width, width, width / ceil(width) do
+		local vec1 = {
+			x = cos(yaw) * ((pos_x + x) - pos_x) + pos_x,
+			y = pos.y + height,
+			z = sin(yaw) * ((pos_x + x) - pos_x) + pos_z
+		}
+		local vec2 = {
+			x = cos(yaw) * ((pos_x + x) - pos_x) + pos_x,
+			y = pos.y,
+			z = sin(yaw) * ((pos_x + x) - pos_x) + pos_z
+		}
+		local ray = raycast(vec1, vec2, false)
 		if ray then
-			return true, ray.intersection_point
+			local collision = ray.intersection_point
+			if collision.y - pos.y <= (self.stepheight or 1.1) then
+				local step = creatura.get_node_def({x = vec1.x, y = vec1.y + 0.5, z = vec1.z})
+				if step.walkable then
+					return true, collision
+				end
+			end
 		end
-	end]]
+	end
 	return false
 end
 
 local function get_avoidance_dir(self)
 	local pos = self.object:get_pos()
 	if not pos then return end
-	local collide, col_pos = get_collision(self, self.object:get_yaw())
-	if collide then
+	local _, col_pos = get_collision(self)
+	if col_pos then
 		local vel = self.object:get_velocity()
 		local ahead = vec_add(pos, vec_normal(self.object:get_velocity()))
 		local avoidance_force = vector.subtract(ahead, col_pos)

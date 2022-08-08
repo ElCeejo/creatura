@@ -35,11 +35,9 @@ end
 -- Local API --
 ---------------
 
-local function is_value_in_table(tbl, val)
+local function contains_val(tbl, val)
 	for _, v in pairs(tbl) do
-		if v == val then
-			return true
-		end
+		if v == val then return true end
 	end
 	return false
 end
@@ -382,26 +380,27 @@ end
 function creatura.get_nearby_object(self, name, range)
 	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
 	for _, object in ipairs(objects) do
-		if creatura.is_alive(object)
-		and not object:is_player()
+		local ent = creatura.is_alive(ent) and object:get_luaentity()
+		if ent
 		and object ~= self.object
-		and not object:get_luaentity()._ignore
-		and object:get_luaentity().name == name then
+		and not ent._ignore
+		and ((type(name) == "table" and contains_val(name, ent.name))
+		or ent.name == name) then
 			return object
 		end
 	end
-	return
 end
 
 function creatura.get_nearby_objects(self, name, range)
 	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
 	local nearby = {}
 	for _, object in ipairs(objects) do
-		if creatura.is_alive(object)
-		and not object:is_player()
+		local ent = creatura.is_alive(ent) and object:get_luaentity()
+		if ent
 		and object ~= self.object
-		and not object:get_luaentity()._ignore
-		and object:get_luaentity().name == name then
+		and not ent._ignore
+		and ((type(name) == "table" and contains_val(name, ent.name))
+		or ent.name == name) then
 			table.insert(nearby, object)
 		end
 	end
@@ -450,7 +449,7 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 		add_wear = not minetest.is_creative_enabled(puncher)
 	end
 	if (self.immune_to
-	and is_value_in_table(self.immune_to, tool_name)) then
+	and contains_val(self.immune_to, tool_name)) then
 		return
 	end
 	self:apply_knockback(dir, 12)

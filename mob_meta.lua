@@ -154,6 +154,7 @@ function mob:halt()
 	}
 	--self.object:set_velocity({x = 0, y = 0, z = 0})
 	self._path_data = {}
+	self._tyaw = self.object:get_yaw() or 0
 end
 
 -- Turn to specified yaw
