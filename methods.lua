@@ -32,15 +32,15 @@ local vec_add = vector.add
 local yaw2dir = minetest.yaw_to_dir
 local dir2yaw = minetest.dir_to_yaw
 
---[[local function debugpart(pos, time, tex)
+local function debugpart(pos, time, tex)
 	minetest.add_particle({
 		pos = pos,
 		texture = tex or "creatura_particle_red.png",
-		expirationtime = time or 3,
+		expirationtime = time or 0.55,
 		glow = 6,
-		size = 1
+		size = 8
 	})
-end]]
+end
 
 ---------------------
 -- Local Utilities --
@@ -101,7 +101,7 @@ end
 	return false
 end]]
 
-local function get_collision(self)
+function creatura.get_collision(self)
 	local yaw = self.object:get_yaw()
 	local pos = self.object:get_pos()
 	if not pos then return end
@@ -113,29 +113,22 @@ local function get_collision(self)
 	-- Loop
 	local pos_x, pos_z = ahead.x, ahead.z
 	for x = -width, width, width / ceil(width) do
-		local vec1 = {
-			x = cos(yaw) * ((pos_x + x) - pos_x) + pos_x,
-			y = pos.y + height,
-			z = sin(yaw) * ((pos_x + x) - pos_x) + pos_z
-		}
-		local vec2 = {
-			x = cos(yaw) * ((pos_x + x) - pos_x) + pos_x,
-			y = pos.y,
-			z = sin(yaw) * ((pos_x + x) - pos_x) + pos_z
-		}
-		local ray = raycast(vec1, vec2, false)
-		if ray then
-			local collision = ray.intersection_point
-			if collision.y - pos.y <= (self.stepheight or 1.1) then
-				local step = creatura.get_node_def({x = vec1.x, y = vec1.y + 0.5, z = vec1.z})
-				if step.walkable then
-					return true, collision
-				end
+		for y = 0, height, height / ceil(height) do
+			local pos2 = {
+				x = cos(yaw) * ((pos_x + x) - pos_x) + pos_x,
+				y = pos.y + y,
+				z = sin(yaw) * ((pos_x + x) - pos_x) + pos_z
+			}
+			if pos2.y - pos.y > (self.stepheight or 1.1)
+			and creatura.get_node_def(pos2).walkable then
+				return true, pos2
 			end
 		end
 	end
 	return false
 end
+
+local get_collision = creatura.get_collision
 
 local function get_avoidance_dir(self)
 	local pos = self.object:get_pos()
@@ -143,11 +136,13 @@ local function get_avoidance_dir(self)
 	local _, col_pos = get_collision(self)
 	if col_pos then
 		local vel = self.object:get_velocity()
-		local ahead = vec_add(pos, vec_normal(self.object:get_velocity()))
+		vel.y = 0
+		local vel_len = vec_len(vel) * (1 + (self.step_delay or 0))
+		local ahead = vec_add(pos, vec_normal(vel))
 		local avoidance_force = vector.subtract(ahead, col_pos)
 		avoidance_force.y = 0
-		local vel_len = vec_len(vel)
 		avoidance_force = vec_multi(vec_normal(avoidance_force), (vel_len > 1 and vel_len) or 1)
+		debugpart(vec_add(ahead, avoidance_force))
 		return vec_dir(pos, vec_add(ahead, avoidance_force))
 	end
 end

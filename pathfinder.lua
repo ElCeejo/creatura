@@ -134,9 +134,9 @@ function creatura.find_lvm_path(self, start, goal, obj_width, obj_height, max_op
 	fly = fly or false
 	swim = swim or false
 
-	start = start
+	if vec_dist(start, goal) > (self.tracking_range or 128) then return {} end
 
-	--self._path_data.start = start
+	self._path_data.start = start
 
 	local path_neighbors = {
 		{x = 1, y = 0, z = 0},
@@ -275,6 +275,12 @@ function creatura.find_lvm_path(self, start, goal, obj_width, obj_height, max_op
 
 			self._path_data.open = openSet
 			self._path_data.closedSet = closedSet
+
+			local current_start = vec_round(self._path_data.start)
+
+			if closedSet[minetest.hash_node_position(current_start)] then
+				start_index = minetest.hash_node_position(current_start)
+			end
 
 			-- Reconstruct path if end is reached
 			if ((is_on_ground(_goal)

@@ -74,6 +74,14 @@ function creatura.get_boid_members(pos, radius, name)
 			table.insert(members, object)
 		end
 	end
+	if #members > 1 then
+		for _, object in ipairs(members) do
+			local ent = object and object:get_luaentity()
+			if ent then
+				ent._movement_data.boids = members
+			end
+		end
+	end
 	return members
 end
 

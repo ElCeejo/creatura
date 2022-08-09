@@ -355,8 +355,13 @@ function creatura.sensor_ceil(self, range, water)
 	return dist, node
 end
 
+local get_objects = minetest.get_objects_inside_radius
+
 function creatura.get_nearby_player(self, range)
-	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
+	local pos = self.object:get_pos()
+	if not pos then return end
+	local stored_objs = self._nearby_objs or {}
+	local objects = (#stored_objs > 0 and stored_objs) or get_objects(pos, range or self.tracking_range)
 	for _, object in ipairs(objects) do
 		if object:is_player()
 		and creatura.is_alive(object) then
@@ -366,7 +371,10 @@ function creatura.get_nearby_player(self, range)
 end
 
 function creatura.get_nearby_players(self, range)
-	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
+	local pos = self.object:get_pos()
+	if not pos then return end
+	local stored_objs = self._nearby_objs or {}
+	local objects = (#stored_objs > 0 and stored_objs) or get_objects(pos, range or self.tracking_range)
 	local nearby = {}
 	for _, object in ipairs(objects) do
 		if object:is_player()
@@ -378,7 +386,10 @@ function creatura.get_nearby_players(self, range)
 end
 
 function creatura.get_nearby_object(self, name, range)
-	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
+	local pos = self.object:get_pos()
+	if not pos then return end
+	local stored_objs = self._nearby_objs or {}
+	local objects = (#stored_objs > 0 and stored_objs) or get_objects(pos, range or self.tracking_range)
 	for _, object in ipairs(objects) do
 		local ent = creatura.is_alive(object) and object:get_luaentity()
 		if ent
@@ -392,7 +403,10 @@ function creatura.get_nearby_object(self, name, range)
 end
 
 function creatura.get_nearby_objects(self, name, range)
-	local objects = minetest.get_objects_inside_radius(self:get_center_pos(), range or self.tracking_range)
+	local pos = self.object:get_pos()
+	if not pos then return end
+	local stored_objs = self._nearby_objs or {}
+	local objects = (#stored_objs > 0 and stored_objs) or get_objects(pos, range or self.tracking_range)
 	local nearby = {}
 	for _, object in ipairs(objects) do
 		local ent = creatura.is_alive(object) and object:get_luaentity()

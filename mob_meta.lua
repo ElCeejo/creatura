@@ -215,12 +215,12 @@ function mob:do_velocity()
 	local vel = self.object:get_velocity()
 	local yaw = self.object:get_yaw()
 	if not yaw then return end
-	local dir = minetest.yaw_to_dir(yaw)
 	local horz_vel = data.horz_vel
 	local vert_vel = data.vert_vel
-	vel.x = (horz_vel and horz_vel * dir.x) or vel.x
+	if horz_vel and horz_vel < 1 then horz_vel = 1 end
+	vel.x = (horz_vel and (sin(yaw) * -horz_vel)) or vel.x
 	vel.y = vert_vel or vel.y
-	vel.z = (horz_vel and horz_vel * dir.z) or vel.z
+	vel.z = (horz_vel and (cos(yaw) * horz_vel)) or vel.z
 	self.object:set_velocity(vel)
 end
 
@@ -629,6 +629,27 @@ function mob:get_target(target)
 	return true, line_of_sight, tpos
 end
 
+function mob:store_nearby_objects()
+	local pos = self.object:get_pos()
+	if not pos then return end
+	local objects = minetest.get_objects_inside_radius(pos, self.tracking_range or 8)
+	if #objects < 1 then return end
+	local objs = {}
+	for _, object in ipairs(objects) do
+		if creatura.is_alive(object)
+		and object ~= self.object then
+			local ent = object:get_luaentity()
+			local player = object:is_player()
+			if (ent
+			and not ent._ignore)
+			or player then
+				table.insert(objs, object)
+			end
+		end
+	end
+	self._nearby_objs = objs
+end
+
 -- Actions
 
 function mob:set_action(func)
@@ -784,6 +805,8 @@ function mob:activate(staticdata, dtime)
 		end
 	end
 
+	self:store_nearby_objects()
+
 	if self.activate_func then
 		self:activate_func(self, staticdata, dtime)
 	end
@@ -806,20 +829,27 @@ function mob:on_step(dtime, moveresult)
 	if moveresult then
 		self.touching_ground = moveresult.touching_ground
 	end
+	local stand_pos
+	local stand_node
 	if step_tick <= 0 then
-		-- Physics
-		if self._physics then
-			self:_physics(moveresult)
-		end
-		-- Vitals
-		if self._vitals then
-			self:_vitals()
-		end
+		stand_pos = self.object:get_pos()
+		if not stand_pos then return end
+		stand_node = minetest.get_node(stand_pos)
 		-- Cached Geometry
 		self.properties = self.object:get_properties()
 		self.width = self:get_hitbox()[4] or 0.5
 		self.height = self:get_height() or 1
 	end
+	if stand_pos
+	and stand_node then
+		if self._vitals then
+			self:_vitals(stand_pos, stand_node)
+		end
+		if self._physics then
+			self:_physics(moveresult, stand_pos, stand_node)
+		end
+	end
+	if self:timer(10) then self:store_nearby_objects() end -- Reduce expensive calls
 	self:do_velocity()
 	self:do_turn()
 	if self.utility_stack
@@ -931,16 +961,14 @@ local function collision_detection(self)
 	end
 end
 
-local function water_physics(self)
+local function water_physics(self, pos, node)
 	-- Props
 	local gravity = self._movement_data.gravity
 	local height = self.height
 	-- Vectors
-	local floor_pos = self.object:get_pos()
-	floor_pos.y = floor_pos.y + 0.01
-	local surface_pos = floor_pos
-	local floor_node = minetest.get_node(floor_pos)
-	if minetest.get_item_group(floor_node.name, "liquid") < 1 then
+	pos.y = pos.y + 0.01
+	local surface_pos = pos
+	if minetest.get_item_group(node.name, "liquid") < 1 then
 		self.object:set_acceleration({
 			x = 0,
 			y = gravity,
@@ -951,13 +979,13 @@ local function water_physics(self)
 		end
 		return
 	end
-	self.in_liquid = floor_node.name
+	self.in_liquid = node.name
 	-- Get submergence (Not the most accurate, but reduces lag)
 	for i = 1, math.ceil(height * 3) do
 		local step_pos = {
-			x = floor_pos.x,
-			y = floor_pos.y + 0.5 * i,
-			z = floor_pos.z
+			x = pos.x,
+			y = pos.y + 0.5 * i,
+			z = pos.z
 		}
 		if minetest.get_item_group(minetest.get_node(step_pos).name, "liquid") > 0 then
 			surface_pos = step_pos
@@ -966,7 +994,7 @@ local function water_physics(self)
 		end
 	end
 	-- Apply Physics
-	local submergence = surface_pos.y - floor_pos.y
+	local submergence = surface_pos.y - pos.y
 	local vel = self.object:get_velocity()
 	local bouyancy = self.bouyancy_multiplier or 1
 	local accel = (submergence - vel.y * abs(vel.y) * 0.4) * bouyancy
@@ -988,23 +1016,27 @@ local function water_physics(self)
 	})
 end
 
-function mob:_physics(moveresult)
-	if not self.object then return end
-	water_physics(self)
+function mob:_physics(moveresult, pos, node)
+	if not pos then return end
+	water_physics(self, pos, node)
 	-- Step up nodes
 	do_step(self, moveresult)
 	-- Object collision
 	collision_detection(self)
-	if not self.in_liquid
-	and not self.touching_ground then
+	local in_liquid = self.in_liquid
+	local on_ground = self.touching_ground
+	if not in_liquid
+	and not on_ground then
 		self.is_falling = true
 	else
 		self.is_falling = false
 	end
-	if not self.in_liquid
-	and self._movement_data.gravity ~= 0 then
+	local move_data = self._movement_data
+	if not in_liquid
+	and not move_data.func
+	and move_data.gravity ~= 0 then
 		local vel = self.object:get_velocity()
-		if self.touching_ground then
+		if on_ground then
 			local nvel = vector.multiply(vel, 0.2)
 			if nvel.x < 0.2
 			and nvel.z < 0.2 then
@@ -1166,67 +1198,55 @@ end
 
 -- Vitals
 
-function mob:_vitals()
-	local stand_pos = self.object:get_pos()
-	if not stand_pos then return end
+function mob:_vitals(pos, node)
+	if not pos or not node then return end
+	local stand_def = creatura.get_node_def(node.name)
 	local max_fall = self.max_fall or 0
-	if max_fall > 0 then
-		local fall_start = self._fall_start
-		if self.is_falling
-		and not fall_start then
-			self._fall_start = stand_pos.y
-		elseif fall_start then
-			if self.touching_ground
-			and not self.in_liquid then
-				local damage = fall_start - stand_pos.y
+	local in_liquid = self.in_liquid
+	local on_ground = self.touching_ground
+	local damage
+	if max_fall > 0
+	and not in_liquid then
+		local fall_start = self._fall_start or (not on_ground and pos.y)
+		if fall_start then
+			if on_ground then
+				damage = fall_start - pos.y
 				if damage < max_fall then
-					self._fall_start = nil
-					return
+					damage = nil
 				end
 				local resist = self.fall_resistance or 0
-				self:hurt(damage - (damage * resist))
-				self:indicate_damage()
-				if random(4) < 2 then
-					self:play_sound("hurt")
-				end
-				self._fall_start = nil
-			elseif self.in_liquid then
+				damage = damage - damage * resist
 				self._fall_start = nil
 			end
 		end
 	end
 	if self:timer(1) then
-		local head_pos = vec_raise(stand_pos, self.height)
+		local head_pos = vec_raise(pos, self.height)
 		local head_node = minetest.get_node(head_pos)
-		local head_def = creatura.get_node_def(head_node.name)
-		if head_def.drawtype == "liquid"
-		and minetest.get_item_group(head_node.name, "water") > 0 then
+		if minetest.get_item_group(head_node.name, "liquid") > 0 then
 			if self._breath <= 0 then
-				self:hurt(1)
-				self:indicate_damage()
-				if random(4) < 2 then
-					self:play_sound("hurt")
-				end
+				damage = (damage or 0) + 1
 			else
 				self._breath = self._breath - 1
 				self:memorize("_breath", self._breath)
 			end
 		end
-		local stand_node = minetest.get_node(stand_pos)
-		local stand_def = creatura.get_node_def(stand_node.name)
-		if minetest.get_item_group(stand_node.name, "fire") > 0
+		if minetest.get_item_group(stand_def.name, "fire") > 0
 		and stand_def.damage_per_second then
-			local damage = stand_def.damage_per_second
 			local resist = self.fire_resistance or 0.5
-			self:hurt(damage - damage * resist)
-			self:indicate_damage()
-			if random(4) < 2 then
-				self:play_sound("hurt")
-			end
+			damage = (damage or 0) + stand_def.damage_per_second * resist
 		end
 	end
+	if damage then
+		self:hurt(damage)
+		self:indicate_damage()
+		if random(4) < 2 then
+			self:play_sound("hurt")
+		end
+	end
+	-- Entity Cramming
 	if self:timer(5) then
-		local objects = minetest.get_objects_inside_radius(stand_pos, 0.2)
+		local objects = minetest.get_objects_inside_radius(pos, 0.2)
 		if #objects > 10 then
 			self:indicate_damage()
 			self.hp = self:memorize("hp", -1)
