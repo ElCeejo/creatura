@@ -32,7 +32,7 @@ local vec_add = vector.add
 local yaw2dir = minetest.yaw_to_dir
 local dir2yaw = minetest.dir_to_yaw
 
-local function debugpart(pos, time, tex)
+--[[local function debugpart(pos, time, tex)
 	minetest.add_particle({
 		pos = pos,
 		texture = tex or "creatura_particle_red.png",
@@ -40,13 +40,13 @@ local function debugpart(pos, time, tex)
 		glow = 6,
 		size = 8
 	})
-end
+end]]
 
 ---------------------
 -- Local Utilities --
 ---------------------
 
-local function raycast(pos1, pos2, liquid)
+--[[local function raycast(pos1, pos2, liquid)
 	local ray = minetest.raycast(pos1, pos2, false, liquid or false)
 	local col = ray:next()
 	while col do
@@ -56,7 +56,7 @@ local function raycast(pos1, pos2, liquid)
 		end
 		col = ray:next()
 	end
-end
+end]]
 
 --[[local function get_collision(self, yaw)
 	local width = self.width
@@ -142,7 +142,7 @@ local function get_avoidance_dir(self)
 		local avoidance_force = vector.subtract(ahead, col_pos)
 		avoidance_force.y = 0
 		avoidance_force = vec_multi(vec_normal(avoidance_force), (vel_len > 1 and vel_len) or 1)
-		debugpart(vec_add(ahead, avoidance_force))
+		--debugpart(vec_add(ahead, avoidance_force))
 		return vec_dir(pos, vec_add(ahead, avoidance_force))
 	end
 end
