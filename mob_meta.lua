@@ -192,22 +192,37 @@ end
 -- Sets Velocity to desired speed in mobs current look direction
 
 function mob:set_forward_velocity(speed)
-	self._movement_data.horz_vel = speed
+	if self.step_delay then
+		self._movement_data.horz_vel = speed
+	else
+		local yaw = self.object:get_yaw()
+		local vel = self.object:get_velocity()
+		vel.x = sin(yaw) * -speed
+		vel.z = cos(yaw) * speed
+		self.object:set_velocity(vel)
+	end
 end
 
 -- Sets Velocity on y axis
 
 function mob:set_vertical_velocity(speed)
-	self._movement_data.vert_vel = speed
+	if self.step_delay then
+		self._movement_data.vert_vel = speed
+	else
+		local vel = self.object:get_velocity()
+		vel.y = speed
+		self.object:set_velocity(vel)
+	end
 end
 
 function mob:do_velocity()
+	if not self.step_delay then return end
 	local data = self._movement_data or {}
 	local vel = self.object:get_velocity()
 	local yaw = self.object:get_yaw()
 	if not yaw then return end
-	local horz_vel = data.horz_vel or (data.gravity == 0 and 0)
-	local vert_vel = data.vert_vel or (data.gravity == 0 and 0)
+	local horz_vel = data.horz_vel or (data.gravity >= 0 and 0)
+	local vert_vel = data.vert_vel or (data.gravity >= 0 and 0)
 	vel.x = (horz_vel and (sin(yaw) * -horz_vel)) or vel.x
 	vel.y = vert_vel or vel.y
 	vel.z = (horz_vel and (cos(yaw) * horz_vel)) or vel.z
