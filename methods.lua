@@ -142,7 +142,6 @@ local function get_avoidance_dir(self)
 		local avoidance_force = vector.subtract(ahead, col_pos)
 		avoidance_force.y = 0
 		avoidance_force = vec_multi(vec_normal(avoidance_force), (vel_len > 1 and vel_len) or 1)
-		--debugpart(vec_add(ahead, avoidance_force))
 		return vec_dir(pos, vec_add(ahead, avoidance_force))
 	end
 end
@@ -247,7 +246,6 @@ end
 creatura.register_movement_method("creatura:pathfind", function(self)
 	local path = {}
 	local box = clamp(self.width, 0.5, 1.5)
-	self:set_gravity(-9.8)
 	local trimmed = false
 	local init_path = false
 	local function func(_self, goal, speed_factor)
@@ -258,6 +256,7 @@ creatura.register_movement_method("creatura:pathfind", function(self)
 			_self:halt()
 			return true
 		end
+		self:set_gravity(-9.8)
 		-- Get movement direction
 		local steer_to = get_avoidance_dir(self, goal)
 		local goal_dir = vec_dir(pos, goal)
@@ -303,7 +302,6 @@ end)
 creatura.register_movement_method("creatura:theta_pathfind", function(self)
 	local path = {}
 	local box = clamp(self.width, 0.5, 1.5)
-	self:set_gravity(-9.8)
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
@@ -313,6 +311,7 @@ creatura.register_movement_method("creatura:theta_pathfind", function(self)
 			_self:halt()
 			return true
 		end
+		self:set_gravity(-9.8)
 		-- Get movement direction
 		local steer_to = get_avoidance_dir(_self, goal)
 		local goal_dir = vec_dir(pos, goal)
@@ -351,10 +350,12 @@ end)
 
 creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 	local box = clamp(self.width, 0.5, 1.5)
-	self:set_gravity(-9.8)
+	local avd_step = 5
+	local steer_to
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
+		self:set_gravity(-9.8)
 		goal.y = creatura.get_ground_level(goal, 2).y
 		pos.y = creatura.get_ground_level(pos, 2).y
 		-- Return true when goal is reached
@@ -363,11 +364,9 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 			return true
 		end
 		-- Get movement direction
-		local goal_dir = vec_dir(pos, goal)
-		local steer_to = get_avoidance_dir(self, goal)
-		if steer_to then
-			goal_dir = steer_to
-		end
+		avd_step = (avd_step <= 0 and 5) or avd_step - 1
+		steer_to = (avd_step > 1 and steer_to) or (avd_step <= 0 and get_avoidance_dir(self, goal))
+		local goal_dir = steer_to or vec_dir(pos, goal)
 		local yaw = _self.object:get_yaw()
 		local goal_yaw = dir2yaw(goal_dir)
 		local speed = abs(_self.speed or 2) * speed_factor or 0.5

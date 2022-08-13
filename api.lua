@@ -80,13 +80,13 @@ function creatura.is_alive(mob)
 		return false
 	end
 	if type(mob) == "table" then
-		return mob.hp > 0
+		return (mob.hp or mob.health or 0) > 0
 	end
 	if mob:is_player() then
 		return mob:get_hp() > 0
 	else
 		local ent = mob:get_luaentity()
-		return ent and ent.hp and ent.hp > 0
+		return ent and (ent.hp or ent.health or 0) > 0
 	end
 end
 
@@ -360,8 +360,8 @@ local get_objects = minetest.get_objects_inside_radius
 function creatura.get_nearby_player(self, range)
 	local pos = self.object:get_pos()
 	if not pos then return end
-	local stored_objs = self._nearby_objs or {}
-	local objects = (#stored_objs > 0 and stored_objs) or get_objects(pos, range or self.tracking_range)
+	local stored = self._nearby_obj or {}
+	local objects = (#stored > 0 and stored) or self:store_nearby_objects(range)
 	for _, object in ipairs(objects) do
 		if object:is_player()
 		and creatura.is_alive(object) then
@@ -373,8 +373,8 @@ end
 function creatura.get_nearby_players(self, range)
 	local pos = self.object:get_pos()
 	if not pos then return end
-	local stored_objs = self._nearby_objs or {}
-	local objects = (#stored_objs > 0 and stored_objs) or get_objects(pos, range or self.tracking_range)
+	local stored = self._nearby_obj or {}
+	local objects = (#stored > 0 and stored) or self:store_nearby_objects(range)
 	local nearby = {}
 	for _, object in ipairs(objects) do
 		if object:is_player()
@@ -388,8 +388,8 @@ end
 function creatura.get_nearby_object(self, name, range)
 	local pos = self.object:get_pos()
 	if not pos then return end
-	local stored_objs = self._nearby_objs or {}
-	local objects = (#stored_objs > 0 and stored_objs) or get_objects(pos, range or self.tracking_range)
+	local stored = self._nearby_obj or {}
+	local objects = (#stored > 0 and stored) or self:store_nearby_objects(range)
 	for _, object in ipairs(objects) do
 		local ent = creatura.is_alive(object) and object:get_luaentity()
 		if ent
@@ -405,8 +405,8 @@ end
 function creatura.get_nearby_objects(self, name, range)
 	local pos = self.object:get_pos()
 	if not pos then return end
-	local stored_objs = self._nearby_objs or {}
-	local objects = (#stored_objs > 0 and stored_objs) or get_objects(pos, range or self.tracking_range)
+	local stored = self._nearby_obj or {}
+	local objects = (#stored > 0 and stored) or self:store_nearby_objects(range)
 	local nearby = {}
 	for _, object in ipairs(objects) do
 		local ent = creatura.is_alive(object) and object:get_luaentity()

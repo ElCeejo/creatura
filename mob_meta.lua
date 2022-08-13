@@ -58,15 +58,6 @@ end
 -- Physics/Vitals Tick --
 -------------------------
 
-local step_tick = 0.15
-
-minetest.register_globalstep(function(dtime)
-	if step_tick <= 0 then
-		step_tick = 0.15
-	end
-	step_tick = step_tick - dtime
-end)
-
 local mob = {
 	max_health = 20,
 	armor_groups = {fleshy = 100},
@@ -215,9 +206,8 @@ function mob:do_velocity()
 	local vel = self.object:get_velocity()
 	local yaw = self.object:get_yaw()
 	if not yaw then return end
-	local horz_vel = data.horz_vel
-	local vert_vel = data.vert_vel
-	if horz_vel and horz_vel < 1 then horz_vel = 1 end
+	local horz_vel = data.horz_vel or (data.gravity == 0 and 0)
+	local vert_vel = data.vert_vel or (data.gravity == 0 and 0)
 	vel.x = (horz_vel and (sin(yaw) * -horz_vel)) or vel.x
 	vel.y = vert_vel or vel.y
 	vel.z = (horz_vel and (cos(yaw) * horz_vel)) or vel.z
@@ -440,6 +430,7 @@ function mob:animate(animation)
 	if not self._anim
 	or self._anim ~= animation then
 		local anim = self.animations[animation]
+		if anim[2] then anim = anim[random(#anim)] end
 		self.object:set_animation(anim.range, anim.speed, anim.frame_blend, anim.loop)
 		self._anim = animation
 	end
@@ -629,10 +620,12 @@ function mob:get_target(target)
 	return true, line_of_sight, tpos
 end
 
-function mob:store_nearby_objects()
+function mob:store_nearby_objects(radius)
 	local pos = self.object:get_pos()
 	if not pos then return end
-	local objects = minetest.get_objects_inside_radius(pos, self.tracking_range or 8)
+	local track_radius = self.tracking_range or 8
+	if track_radius < 8 then track_radius = 8 end
+	local objects = minetest.get_objects_inside_radius(pos, radius or track_radius)
 	if #objects < 1 then return end
 	local objs = {}
 	for _, object in ipairs(objects) do
@@ -648,6 +641,7 @@ function mob:store_nearby_objects()
 		end
 	end
 	self._nearby_objs = objs
+	return objs
 end
 
 -- Actions
@@ -668,6 +662,7 @@ function mob:clear_action()
 end
 
 function mob:set_utility(func)
+	if not self._utility_data then return end
 	self._utility_data.func = func
 end
 
@@ -831,7 +826,9 @@ function mob:on_step(dtime, moveresult)
 	end
 	local stand_pos
 	local stand_node
-	if step_tick <= 0 then
+	local prop_tick = self._prop_tick or 0
+	prop_tick = prop_tick - 1
+	if prop_tick <= 0 then
 		stand_pos = self.object:get_pos()
 		if not stand_pos then return end
 		stand_node = minetest.get_node(stand_pos)
@@ -839,7 +836,9 @@ function mob:on_step(dtime, moveresult)
 		self.properties = self.object:get_properties()
 		self.width = self:get_hitbox()[4] or 0.5
 		self.height = self:get_height() or 1
+		prop_tick = 6
 	end
+	self._prop_tick = prop_tick
 	if stand_pos
 	and stand_node then
 		if self._vitals then
@@ -1175,8 +1174,14 @@ function mob:_execute_utilities()
 		end
 		local dtime = self.dtime
 		self.dtime = dtime + (self.step_delay or 0)
-		self:set_forward_velocity(nil)
-		self:set_vertical_velocity(nil)
+		if self.horz_vel
+		and self.horz_vel ~= 0 then
+			self:set_forward_velocity(nil)
+		end
+		if self.vert_vel
+		and self.vert_vel ~= 0 then
+			self:set_vertical_velocity(nil)
+		end
 		if func(self) then
 			self._utility_data = {
 				utility = nil,
@@ -1200,7 +1205,6 @@ end
 
 function mob:_vitals(pos, node)
 	if not pos or not node then return end
-	local stand_def = creatura.get_node_def(node.name)
 	local max_fall = self.max_fall or 0
 	local in_liquid = self.in_liquid
 	local on_ground = self.touching_ground
@@ -1221,6 +1225,7 @@ function mob:_vitals(pos, node)
 		end
 	end
 	if self:timer(1) then
+		local stand_def = creatura.get_node_def(node.name)
 		local head_pos = vec_raise(pos, self.height)
 		local head_node = minetest.get_node(head_pos)
 		if minetest.get_item_group(head_node.name, "liquid") > 0 then
