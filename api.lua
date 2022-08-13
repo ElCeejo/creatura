@@ -355,8 +355,6 @@ function creatura.sensor_ceil(self, range, water)
 	return dist, node
 end
 
-local get_objects = minetest.get_objects_inside_radius
-
 function creatura.get_nearby_player(self, range)
 	local pos = self.object:get_pos()
 	if not pos then return end
