@@ -356,8 +356,6 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 		local pos = _self.object:get_pos()
 		if not pos then return end
 		self:set_gravity(-9.8)
-		goal.y = creatura.get_ground_level(goal, 2).y
-		pos.y = creatura.get_ground_level(pos, 2).y
 		-- Return true when goal is reached
 		if vec_dist(pos, goal) < box * 1.33 then
 			_self:halt()
@@ -367,6 +365,7 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 		avd_step = (avd_step <= 0 and 5) or avd_step - 1
 		steer_to = (avd_step > 1 and steer_to) or (avd_step <= 0 and get_avoidance_dir(self, goal))
 		local goal_dir = steer_to or vec_dir(pos, goal)
+		pos.y = pos.y + goal_dir.y
 		local yaw = _self.object:get_yaw()
 		local goal_yaw = dir2yaw(goal_dir)
 		local speed = abs(_self.speed or 2) * speed_factor or 0.5
