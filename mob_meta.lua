@@ -1266,7 +1266,7 @@ function mob:_vitals()
 		end
 		if (not self.fire_resistance
 		or self.fire_resistance < 1)
-		and minetest.get_item_group(stand_def.name, "fire") > 0
+		and minetest.get_item_group(stand_def.name, "igniter") > 0
 		and stand_def.damage_per_second then
 			local resist = self.fire_resistance or 0.5
 			damage = (damage or 0) + stand_def.damage_per_second * resist
