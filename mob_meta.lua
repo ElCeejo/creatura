@@ -33,11 +33,21 @@ local function vec_raise(v, n)
 	return {x = v.x, y = v.y + n, z = v.z}
 end
 
-local function fast_ray_sight(pos1, pos2)
-	local ray = minetest.raycast(pos1, pos2, false, false)
-	for col in pairs(ray) do
-		if col.type == "node"
-		and creatura.get_node_def(col.under).walkable then
+local function get_sightline(pos1, pos2)
+	local dir = vec_dir(pos1, pos2)
+	local dist = vec_dist(pos1, pos2)
+	for i = 0, dist do
+		local pos
+		if dist > 0 then
+			pos = {
+				x = pos1.x + dir.x * (i / dist),
+				y = pos1.y + dir.y * (i / dist),
+				z = pos1.z + dir.z * (i / dist)
+			}
+		else
+			pos = pos1
+		end
+		if creatura.get_node_def(pos).walkable then
 			return false
 		end
 	end
@@ -632,7 +642,7 @@ function mob:get_target(target)
 	if not pos then return false, false, nil end
 	local tpos = target:get_pos()
 	tpos.y = floor(tpos.y + 0.5)
-	local line_of_sight = fast_ray_sight(pos, tpos)
+	local line_of_sight = get_sightline(pos, tpos)
 	return true, line_of_sight, tpos
 end
 
