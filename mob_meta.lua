@@ -986,10 +986,8 @@ end
 local function water_physics(self, pos, node)
 	-- Props
 	local gravity = self._movement_data.gravity
-	local height = self.height
 	-- Vectors
 	pos.y = pos.y + 0.01
-	local surface_pos = pos
 	if minetest.get_item_group(node.name, "liquid") < 1 then
 		self.object:set_acceleration({
 			x = 0,
