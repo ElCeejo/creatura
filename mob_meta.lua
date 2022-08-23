@@ -795,7 +795,8 @@ function mob:activate(staticdata, dtime)
 	self._despawn = self:recall("_despawn") or false
 
 	if self._despawn
-	and self.despawn_after then
+	and self.despawn_after
+	and self.object then
 		self.object:remove()
 		return
 	end
@@ -986,6 +987,7 @@ end
 local function water_physics(self, pos, node)
 	-- Props
 	local gravity = self._movement_data.gravity
+	local height = self.height
 	-- Vectors
 	pos.y = pos.y + 0.01
 	if minetest.get_item_group(node.name, "liquid") < 1 then
@@ -1007,7 +1009,7 @@ local function water_physics(self, pos, node)
 	})
 	local center = {
 		x = pos.x,
-		y = pos.y + self.height * 0.5,
+		y = pos.y + height * 0.5,
 		z = pos.z
 	}
 	if minetest.get_item_group(minetest.get_node(center).name, "liquid") < 1 then
@@ -1016,7 +1018,7 @@ local function water_physics(self, pos, node)
 	-- Calculate Physics
 	local vel = self.object:get_velocity()
 	local bouyancy_x = self.bouyancy_multiplier or 1
-	local bouyancy =  (abs(gravity * 0.5) / self.height) * bouyancy_x
+	local bouyancy =  (abs(gravity * 0.5) / height) * bouyancy_x
 	if bouyancy > 0 then
 		if bouyancy > 4.9 then bouyancy = 4.9 end
 		self.object:set_acceleration({
