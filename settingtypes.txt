@@ -16,6 +16,9 @@ creatura_mapgen_spawning (Mapgen Spawning) bool true
 # How many chunks are generated before a Mob can spawn
 creatura_mapgen_spawn_interval (Mapgen Spawning Interval) int 5
 
+# How many Mobs can be a in a Mapblock before ABM spawning is blocked
+creatura_mapblock_limit (Max Mobs per Mapblock) int 99
+
 # Allotted time (in μs) per step for A* pathfinding (lower means less lag but slower pathfinding)
 creatura_a_star_alloted_time (A* Pathfinding Alloted time per step) int 500
 

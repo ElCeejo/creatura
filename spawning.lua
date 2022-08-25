@@ -473,6 +473,9 @@ minetest.register_abm({
 	spawn_cap = 5
 })]]
 
+local abr = (tonumber(minetest.get_mapgen_setting("active_block_range")) or 4) * 16
+local max_per_block = tonumber(minetest.settings:get("creatura_mapblock_limit")) or 99
+
 function creatura.register_abm_spawn(mob, def)
 	local chance = def.chance or 3000
 	local interval = def.interval or 30
@@ -517,7 +520,29 @@ function creatura.register_abm_spawn(mob, def)
 		end
 
 		if aocw
-		and aocw >= spawn_cap then
+		and aocw >= max_per_block then
+			return
+		end
+
+		local mob_count = 0
+		local plyr_found = false
+
+		local objects = minetest.get_objects_inside_radius(pos, abr)
+
+		for _, object in ipairs(objects) do
+			local ent = object and object:get_luaentity()
+			local is_plyr = object and object:is_player()
+			plyr_found = plyr_found or is_plyr
+			if ent
+			and ent.name == mob then
+				mob_count = mob_count + 1
+				if mob_count > spawn_cap then
+					return
+				end
+			end
+		end
+
+		if not plyr_found then
 			return
 		end
 
@@ -533,7 +558,37 @@ function creatura.register_abm_spawn(mob, def)
 
 		local group_size = random(min_group or 1, max_group or 1)
 
-		local obj
+		if group_size > 1 then
+			for _ = 1, group_size do
+				local spawn_pos = creatura.get_ground_level({
+					x = pos.x + random(-mob_width, mob_width),
+					y = pos.y,
+					z = pos.x + random(-mob_width, mob_width),
+				}, 3)
+				if not creatura.is_pos_moveable(spawn_pos, mob_width, mob_height) then
+					spawn_pos = pos
+				end
+				local obj = minetest.add_entity(pos, mob)
+				if obj
+				and creatura.registered_on_spawns[mob]
+				and #creatura.registered_on_spawns[mob] > 0 then
+					for i = 1, #creatura.registered_on_spawns[mob] do
+						local func = creatura.registered_on_spawns[mob][i]
+						func(obj:get_luaentity(), pos)
+					end
+				end
+			end
+		else
+			local obj = minetest.add_entity(pos, mob)
+			if obj
+			and creatura.registered_on_spawns[mob]
+			and #creatura.registered_on_spawns[mob] > 0 then
+				for i = 1, #creatura.registered_on_spawns[mob] do
+					local func = creatura.registered_on_spawns[mob][i]
+					func(obj:get_luaentity(), pos)
+				end
+			end
+		end
 
 		for _ = 1, group_size do
 			obj = minetest.add_entity(pos, mob)
@@ -542,14 +597,7 @@ function creatura.register_abm_spawn(mob, def)
 		minetest.log("action",
 			"[Creatura] [ABM Spawning] Spawned " .. group_size .. " " .. mob .. " at " .. minetest.pos_to_string(pos))
 
-		if obj
-		and creatura.registered_on_spawns[mob]
-		and #creatura.registered_on_spawns[mob] > 0 then
-			for i = 1, #creatura.registered_on_spawns[mob] do
-				local func = creatura.registered_on_spawns[mob][i]
-				func(obj:get_luaentity(), pos)
-			end
-		end
+
 	end
 
 	if spawn_on_load then
