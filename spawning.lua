@@ -568,7 +568,7 @@ function creatura.register_abm_spawn(mob, def)
 				if not creatura.is_pos_moveable(spawn_pos, mob_width, mob_height) then
 					spawn_pos = pos
 				end
-				local obj = minetest.add_entity(pos, mob)
+				local obj = minetest.add_entity(spawn_pos, mob)
 				if obj
 				and creatura.registered_on_spawns[mob]
 				and #creatura.registered_on_spawns[mob] > 0 then
@@ -588,10 +588,6 @@ function creatura.register_abm_spawn(mob, def)
 					func(obj:get_luaentity(), pos)
 				end
 			end
-		end
-
-		for _ = 1, group_size do
-			obj = minetest.add_entity(pos, mob)
 		end
 
 		minetest.log("action",

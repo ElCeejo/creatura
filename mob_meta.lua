@@ -71,6 +71,9 @@ end
 
 local mob = {
 	max_health = 20,
+	max_breath = 30,
+	fire_resistance = 0.5,
+	fall_resistance = 0,
 	armor_groups = {fleshy = 100},
 	damage = 2,
 	speed = 4,
@@ -86,6 +89,7 @@ local mob = {
 	fancy_collide = false,
 	bouyancy_multiplier = 1,
 	hydrodynamics_multiplier = 1
+
 }
 
 local mob_meta = {__index = mob}
@@ -570,8 +574,8 @@ end
 -- Return current collisionbox
 
 function mob:get_hitbox()
-	if not self.properties then return self.collisionbox end
-	return self.properties.collisionbox
+	if not self:get_props() then return self.collisionbox end
+	return self:get_props().collisionbox
 end
 
 -- Return height of current collisionbox
@@ -584,8 +588,8 @@ end
 -- Return current visual size
 
 function mob:get_visual_size()
-	if not self.properties then return end
-	return self.properties.visual_size
+	if not self:get_props() then return end
+	return self:get_props().visual_size
 end
 
 local function is_group_in_table(tbl, name)
@@ -670,6 +674,12 @@ function mob:store_nearby_objects(radius)
 	return objs
 end
 
+function mob:get_props()
+	local props = self.properties or self.object and self.object:get_properties()
+	self.properties = props
+	return props
+end
+
 -- Actions
 
 function mob:set_action(func)
@@ -732,7 +742,7 @@ end
 -- Functions
 
 function mob:activate(staticdata, dtime)
-	self.properties = self.object:get_properties()
+	self:get_props()
 	self.width = self:get_hitbox()[4] or 0.5
 	self.height = self:get_height() or 1
 	self._tyaw = self.object:get_yaw()
@@ -776,7 +786,7 @@ function mob:activate(staticdata, dtime)
 
 	-- Initialize Stats and Visuals
 	if not self.textures then
-		local textures = self.properties.textures
+		local textures = self:get_props().textures
 		if textures then self.textures = textures end
 	end
 
@@ -859,11 +869,11 @@ function mob:on_step(dtime, moveresult)
 	prop_tick = prop_tick - 1
 	if prop_tick <= 0 then
 		self.stand_node = minetest.get_node(self.stand_pos)
-		-- Cached Geometry
-		self.properties = self.object:get_properties()
+		prop_tick = 6
+	end
+	if self:timer(1) then
 		self.width = self:get_hitbox()[4] or 0.5
 		self.height = self:get_height() or 1
-		prop_tick = 6
 	end
 	if self._vitals then
 		self:_vitals()
@@ -890,6 +900,7 @@ function mob:on_step(dtime, moveresult)
 	and self.perm_data then
 		self:step_func(dtime, moveresult)
 	end
+	self.properties = nil
 	self.active_time = self.active_time + dtime
 	if self.despawn_after
 	and self.active_time >= self.despawn_after then
@@ -1055,7 +1066,7 @@ function mob:_physics(moveresult)
 	end
 	local move_data = self._movement_data
 	if not in_liquid
-	and not move_data.func
+	--and not move_data.func
 	and move_data.gravity ~= 0 then
 		local vel = self.object:get_velocity()
 		if on_ground then
@@ -1262,6 +1273,9 @@ function mob:_vitals()
 					self._breath = self._breath - 1
 					self:memorize("_breath", self._breath)
 				end
+			else
+				self._breath = self._breath + 1
+				self:memorize("_breath", self._breath)
 			end
 		end
 		if (not self.fire_resistance

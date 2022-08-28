@@ -2,6 +2,7 @@
 -- Boids --
 -----------
 
+local abs = math.abs
 local random = math.random
 
 local function average(tbl)
@@ -101,10 +102,13 @@ function creatura.get_boid_angle(self, _boids, range)
 	for i = 1, #boids do
 		local boid = boids[i]
 		if boid:get_pos() then
-			local boid_pos = boid:get_pos()
-			table.insert(positions, boid_pos)
-			if boid ~= self.object then
-				table.insert(lifts, vec_normal(boid:get_velocity()).y)
+			local vel = boid:get_velocity()
+			if boid ~= self.object
+			and (abs(vel.x) > 0.1
+			or abs(vel.z) > 0.1) then
+				local boid_pos = boid:get_pos()
+				table.insert(positions, boid_pos)
+				table.insert(lifts, vec_normal(vel).y)
 				table.insert(angles, boid:get_yaw())
 				if not closest_pos
 				or vec_dist(pos, boid_pos) < vec_dist(pos, closest_pos) then
