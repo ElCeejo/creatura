@@ -236,8 +236,8 @@ function mob:do_velocity()
 	local vel = self.object:get_velocity()
 	local yaw = self.object:get_yaw()
 	if not yaw then return end
-	local horz_vel = data.horz_vel or (data.gravity >= 0 and 0)
-	local vert_vel = data.vert_vel or (data.gravity >= 0 and 0)
+	local horz_vel = data.horz_vel --or (data.gravity >= 0 and 0)
+	local vert_vel = data.vert_vel --or (data.gravity >= 0 and 0)
 	vel.x = (horz_vel and (sin(yaw) * -horz_vel)) or vel.x
 	vel.y = vert_vel or vel.y
 	vel.z = (horz_vel and (cos(yaw) * horz_vel)) or vel.z

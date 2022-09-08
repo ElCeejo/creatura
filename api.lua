@@ -481,10 +481,10 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 		tool:add_wear(wear)
 		puncher:set_wielded_item(tool)
 	end
-	if random(4) < 2 then
+	if random(2) < 2 then
 		self:play_sound("hurt")
 	end
-	if tflp > 0.5 then
+	if (tflp or 0) > 0.5 then
 		self:play_sound("hit")
 	end
 	self:indicate_damage()

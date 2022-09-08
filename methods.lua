@@ -36,9 +36,9 @@ local dir2yaw = minetest.dir_to_yaw
 	minetest.add_particle({
 		pos = pos,
 		texture = tex or "creatura_particle_red.png",
-		expirationtime = time or 0.55,
-		glow = 6,
-		size = 8
+		expirationtime = time or 0.1,
+		glow = 16,
+		size = 16
 	})
 end]]
 
@@ -100,6 +100,39 @@ end]]
 	end
 	return false
 end]]
+
+function creatura.get_collision_ranged(self, range)
+	local yaw = self.object:get_yaw()
+	local pos = self.object:get_pos()
+	if not pos then return end
+	local width = self.width
+	local height = self.height
+	pos.y = pos.y + 0.01
+	local m_dir = vec_normal(yaw2dir(yaw))
+	m_dir.x, m_dir.z = m_dir.x * 0.5, m_dir.z * 0.5
+	local ahead = vec_add(pos, vec_multi(m_dir, width + 0.5))
+	-- Loop
+	local pos_x, pos_y, pos_z = ahead.x, ahead.y, ahead.z
+	for i = 0, range or 4 do
+		pos_x = pos_x + m_dir.x * i
+		pos_y = pos_y + m_dir.y * i
+		pos_z = pos_z + m_dir.z * i
+		for x = -width, width, width / ceil(width) do
+			for y = 0, height, height / ceil(height) do
+				local pos2 = {
+					x = cos(yaw) * ((pos_x + x) - pos_x) + pos_x,
+					y = pos.y + y,
+					z = sin(yaw) * ((pos_x + x) - pos_x) + pos_z
+				}
+				if pos2.y - pos.y > (self.stepheight or 1.1)
+				and creatura.get_node_def(pos2).walkable then
+					return true, pos2
+				end
+			end
+		end
+	end
+	return false
+end
 
 function creatura.get_collision(self)
 	local yaw = self.object:get_yaw()
@@ -350,8 +383,8 @@ end)
 
 creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 	local box = clamp(self.width, 0.5, 1.5)
-	local avd_step = 5
 	local steer_to
+	local steer_timer = 0.25
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos then return end
@@ -361,9 +394,9 @@ creatura.register_movement_method("creatura:obstacle_avoidance", function(self)
 			_self:halt()
 			return true
 		end
+		steer_timer = (steer_timer > 0 and steer_timer - _self.dtime) or 0.25
 		-- Get movement direction
-		avd_step = (avd_step <= 0 and 5) or avd_step - 1
-		steer_to = (avd_step > 1 and steer_to) or (avd_step <= 0 and get_avoidance_dir(self, goal))
+		steer_to = (steer_timer > 0 and steer_to) or (steer_timer <= 0 and get_avoidance_dir(_self))
 		local goal_dir = steer_to or vec_dir(pos, goal)
 		pos.y = pos.y + goal_dir.y
 		local yaw = _self.object:get_yaw()
