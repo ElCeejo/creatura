@@ -1269,7 +1269,8 @@ function mob:_vitals()
 		or self.max_breath > 0 then
 			local head_pos = vec_raise(pos, self.height)
 			local head_node = minetest.get_node(head_pos)
-			if minetest.get_item_group(head_node.name, "liquid") > 0 then
+			if minetest.get_item_group(head_node.name, "liquid") > 0
+			or creatura.get_node_def(head_node.name).walkable then
 				if self._breath <= 0 then
 					damage = (damage or 0) + 1
 				else
