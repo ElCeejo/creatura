@@ -506,7 +506,7 @@ function mob:set_scale(x)
 		},
 		collisionbox = new_box
 	})
-	self._border = index_box_border(self)
+	--self._border = index_box_border(self)
 end
 
 -- Fixes mob scale being changed when attached to a parent
@@ -748,7 +748,6 @@ function mob:activate(staticdata, dtime)
 	self.height = self:get_height() or 1
 	self._tyaw = self.object:get_yaw()
 	self.last_yaw = self.object:get_yaw()
-	self.active_time = 0
 	self.in_liquid = false
 	self.is_falling = false
 	self.touching_ground = false
@@ -800,10 +799,12 @@ function mob:activate(staticdata, dtime)
 		if #self.textures > 0 then self.texture_no = random(#self.textures) end
 	end
 
+	self.active_time = self:recall("active_time") or 0
+
 	if self:recall("despawn_after") ~= nil then
 		self.despawn_after = self:recall("despawn_after")
 	end
-	self._despawn = self:recall("_despawn") or false
+	self._despawn = self:recall("_despawn") or nil
 
 	if self._despawn
 	and self.despawn_after
@@ -813,7 +814,7 @@ function mob:activate(staticdata, dtime)
 	end
 
 	self._breath =  self:recall("_breath") or (self.max_breath or 30)
-	self._border = index_box_border(self)
+	--self._border = index_box_border(self)
 
 	if self.textures
 	and self.texture_no then
@@ -903,9 +904,18 @@ function mob:on_step(dtime, moveresult)
 	end
 	self.properties = nil
 	self.active_time = self.active_time + dtime
-	if self.despawn_after
-	and self.active_time >= self.despawn_after then
-		self._despawn = self:memorize("_despawn", true)
+	self:memorize("active_time", self.active_time)
+	if self.despawn_after then
+		local despawn = math.floor(self.active_time / self.despawn_after)
+		if despawn > 0 then
+			if despawn > 1 then
+				self.object:remove()
+				return
+			end
+			if not self._despawn then
+				self._despawn = self:memorize("_despawn", true)
+			end
+		end
 	end
 end
 
@@ -921,51 +931,10 @@ end
 -- Object API --
 ----------------
 
-local fancy_step = false
-
-local step_type = minetest.settings:get("creatura_step_type")
-
-if step_type == "fancy" then
-	fancy_step = true
-end
-
 -- Physics
 
 local moveable = creatura.is_pos_moveable
 
-local function do_step(self)
-	if not fancy_step then return end
-	local pos = self.object:get_pos()
-	local vel = self.object:get_velocity()
-	if not self._step then
-		if self.touching_ground
-		and abs(vel.x + vel.z) > 0 then
-			local border = self._border
-			local yaw_offset = vec_add(pos, vec_multi(minetest.yaw_to_dir(self.object:get_yaw()), self.width + 0.7))
-			table.sort(border, function(a, b)
-				return vec_dist(vec_add(pos, a), yaw_offset) < vec_dist(vec_add(pos, b), yaw_offset)
-			end)
-			local step_pos = vec_center(vec_add(pos, border[1]))
-			local halfway = vec_add(pos, vec_multi(vec_dir(pos, step_pos), 0.5))
-			halfway.y = step_pos.y
-			if creatura.get_node_def(step_pos).walkable
-			and abs(diff(self.object:get_yaw(), minetest.dir_to_yaw(vec_dir(pos, step_pos)))) < 1.5
-			and moveable(halfway, self.width, self.height) then
-				self._step = vec_center(step_pos)
-			end
-		end
-	else
-		self.object:set_velocity(vector.new(vel.x, 7, vel.z))
-		if self._step.y < pos.y - 0.5 then
-			self.object:set_velocity(vector.new(vel.x, 0.5, vel.z))
-			self._step = nil
-			local step_pos = self.object:get_pos()
-			local dir = minetest.yaw_to_dir(self.object:get_yaw())
-			step_pos = vec_add(step_pos, vec_multi(dir, 0.1))
-			self.object:set_pos(step_pos)
-		end
-	end
-end
 
 local function collision_detection(self)
 	if not creatura.is_alive(self)
@@ -1053,8 +1022,6 @@ function mob:_physics(moveresult)
 	local node = self.stand_node
 	if not pos or not node then return end
 	water_physics(self, pos, node)
-	-- Step up nodes
-	do_step(self, moveresult)
 	-- Object collision
 	collision_detection(self)
 	local in_liquid = self.in_liquid
