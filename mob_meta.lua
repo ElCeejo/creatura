@@ -426,7 +426,6 @@ function mob:get_wander_pos_3d(min_range, max_range, dir, vert_bias)
 end
 
 function mob:is_pos_safe(pos)
-	local mob_pos = self.object:get_pos()
 	if not pos then return end
 	local node = minetest.get_node(pos)
 	if not node then return false end
