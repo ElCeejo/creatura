@@ -438,7 +438,7 @@ function mob:is_pos_safe(pos)
 		for i = 1, self.max_fall or 3 do
 			local fall_pos = {
 				x = pos.x,
-				y = floor(mob_pos.y + 0.5) - i,
+				y = floor(pos.y + 0.5) - i,
 				z = pos.z
 			}
 			if creatura.get_node_def(fall_pos).walkable then
@@ -695,6 +695,8 @@ end
 
 function mob:clear_action()
 	self._action = {}
+	self._movement_data.goal = nil
+	self._movement_data.func = nil
 end
 
 function mob:set_utility(func)
@@ -1142,12 +1144,13 @@ function mob:_execute_utilities()
 	and is_alive then
 		for i = 1, #self.utility_stack do
 			local utility = self.utility_stack[i].utility
+			local util_data = self._utility_data
 			local get_score = self.utility_stack[i].get_score
 			local step_delay = self.utility_stack[i].step_delay
 			local score, args = get_score(self)
-			if self._utility_data.utility
-			and utility == self._utility_data.utility
-			and self._utility_data.score > 0
+			if util_data.utility
+			and utility == util_data.utility
+			and util_data.score > 0
 			and score <= 0 then
 				self._utility_data = {
 					utility = nil,
@@ -1155,9 +1158,10 @@ function mob:_execute_utilities()
 					step_delay = nil,
 					score = 0
 				}
+				util_data = self._utility_data
 			end
 			if score > 0
-			and score >= self._utility_data.score
+			and score >= util_data.score
 			and score >= loop_data.score then
 				loop_data = {
 					utility = utility,
