@@ -34,7 +34,7 @@ local vec_sub = vector.subtract
 local yaw2dir = minetest.yaw_to_dir
 local dir2yaw = minetest.dir_to_yaw
 
-local function debugpart(pos, time, tex)
+--[[local function debugpart(pos, time, tex)
 	minetest.add_particle({
 		pos = pos,
 		texture = tex or "creatura_particle_red.png",
@@ -42,7 +42,7 @@ local function debugpart(pos, time, tex)
 		glow = 16,
 		size = 16
 	})
-end
+end]]
 
 ---------------------
 -- Local Utilities --
@@ -122,7 +122,7 @@ function creatura.get_collision_ranged(self, dir, range)
 	local dir_x, dir_y, dir_z = dir.x, dir.y, dir.z
 	local dist
 	local collision
-	for i = 0, range or 4 do
+	for _ = 0, range or 4 do
 		pos_x = pos_x + dir_x
 		pos_y = pos_y + dir_y
 		pos_z = pos_z + dir_z

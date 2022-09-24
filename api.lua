@@ -143,14 +143,14 @@ function creatura.get_ground_level(pos, range)
 	local under = {x = above.x, y = above.y - 1, z = above.z}
 	if not get_node_def(above).walkable and get_node_def(under).walkable then return above end
 	if get_node_def(above).walkable then
-		for i = 1, range do
+		for _ = 1, range do
 			under = above
 			above = {x = above.x, y = above.y + 1, z = above.z}
 			if not get_node_def(above).walkable and get_node_def(under).walkable then return above end
 		end
 	end
 	if not get_node_def(under).walkable then
-		for i = 1, range do
+		for _ = 1, range do
 			above = under
 			under = {x = under.x, y = under.y - 1, z = under.z}
 			if not get_node_def(above).walkable and get_node_def(under).walkable then return above end

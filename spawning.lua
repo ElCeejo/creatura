@@ -580,7 +580,7 @@ function creatura.register_abm_spawn(mob, def)
 				end
 			end
 		end
-		
+
 
 		minetest.log("action",
 			"[Creatura] [ABM Spawning] Spawned " .. group_size .. " " .. mob .. " at " .. minetest.pos_to_string(pos))
