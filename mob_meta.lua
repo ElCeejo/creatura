@@ -877,14 +877,10 @@ function mob:on_step(dtime, moveresult)
 	self:memorize("active_time", self.active_time)
 	if self.despawn_after then
 		local despawn = math.floor(self.active_time / self.despawn_after)
-		if despawn > 0 then
-			if despawn > 1 then
-				self.object:remove()
-				return
-			end
-			if not self._despawn then
-				self._despawn = self:memorize("_despawn", true)
-			end
+		if despawn > 1 then self.object:remove() return end
+		if despawn > 0
+		and not self._despawn then
+			self._despawn = self:memorize("_despawn", true)
 		end
 	end
 end
