@@ -94,36 +94,6 @@ local mob = {
 
 local mob_meta = {__index = mob}
 
-local function index_box_border(self)
-	local width = self.width
-	local pos = self.object:get_pos()
-	pos.y = pos.y + 0.5
-	local pos1 = {
-		x = pos.x - (width + 0.7),
-		y = pos.y,
-		z = pos.z - (width + 0.7),
-	}
-	local pos2 = {
-		x = pos.x + (width + 0.7),
-		y = pos.y,
-		z = pos.z + (width + 0.7),
-	}
-	local border = {}
-	for z = pos1.z, pos2.z do
-		for x = pos1.x, pos2.x do
-			local vec = {
-				x = x,
-				y = pos.y,
-				z = z
-			}
-			if not self:pos_in_box(vec, width) then
-				table.insert(border, vec_sub(vec, pos))
-			end
-		end
-	end
-	return border
-end
-
 function mob:indicate_damage()
 	self._original_texture_mod = self._original_texture_mod or self.object:get_texture_mod()
 	self.object:set_texture_mod(self._original_texture_mod .. "^[colorize:#FF000040")
@@ -881,7 +851,7 @@ function mob:on_step(dtime, moveresult)
 		self:_vitals()
 	end
 	if self._physics then
-		self:_physics(moveresult)
+		self:_physics()
 	end
 	self._prop_tick = prop_tick
 	if self:timer(10) then self:store_nearby_objects() end -- Reduce expensive calls
@@ -932,9 +902,6 @@ end
 ----------------
 
 -- Physics
-
-local moveable = creatura.is_pos_moveable
-
 
 local function collision_detection(self)
 	if not creatura.is_alive(self)
@@ -1017,7 +984,7 @@ local function water_physics(self, pos, node)
 	self.object:set_velocity(vel)
 end
 
-function mob:_physics(moveresult)
+function mob:_physics()
 	local pos = self.stand_pos
 	local node = self.stand_node
 	if not pos or not node then return end
