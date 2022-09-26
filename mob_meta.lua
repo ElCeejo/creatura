@@ -219,11 +219,7 @@ end
 function mob:apply_knockback(dir, power)
 	if not dir then return end
 	power = power or 6
-	if not self.touching_ground then
-		power = power * 0.8
-	end
 	local knockback = vec_multi(dir, power)
-	knockback.y = abs(power * 0.22)
 	self.object:add_velocity(knockback)
 end
 
@@ -1000,25 +996,11 @@ function mob:_physics()
 	--and not move_data.func
 	and move_data.gravity ~= 0 then
 		local vel = self.object:get_velocity()
-		if on_ground then
-			local nvel = vector.multiply(vel, 0.2)
-			if nvel.x < 0.2
-			and nvel.z < 0.2 then
-				nvel.x = 0
-				nvel.z = 0
-			end
-			nvel.y = vel.y
-			self.object:set_velocity(nvel)
-		else
-			local nvel = vector.multiply(vel, 0.1)
-			if nvel.x < 0.2
-			and nvel.z < 0.2 then
-				nvel.x = 0
-				nvel.z = 0
-			end
-			nvel.y = vel.y
-			self.object:set_velocity(nvel)
-		end
+		local friction = self.dtime * 10
+		if friction > 0.5 then friction = 0.5 end
+		if not on_ground then friction = 0.25 end
+		local nvel = {x = vel.x * (1 - friction), y = vel.y, z = vel.z * (1 - friction)}
+		self.object:set_velocity(nvel)
 	end
 end
 

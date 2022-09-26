@@ -449,18 +449,20 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 	and contains_val(self.immune_to, tool_name)) then
 		return
 	end
-	self:apply_knockback(dir, 12)
-	if not tool_caps
-	or not tool_caps.damage_groups
-	or not tool_caps.damage_groups.fleshy then
-		tool_caps = {
-			damage_groups = {
-				fleshy = 2
-			},
-			full_punch_interval = 1.4
-		}
+	local damage = 0
+	local armor_grps = self.object:get_armor_groups() or self.armor_groups or {}
+	for group, val in pairs(tool_caps.damage_groups or {}) do
+		local dmg_x = tflp / (tool_caps.full_punch_interval or 1.4)
+		damage = damage + val * clamp(dmg_x, 0, 1) * ((armor_grps[group] or 0) / 100.0)
 	end
-	self:hurt(tool_caps.damage_groups.fleshy)
+	if damage > 0 then
+		local dist = vec_dist(self.object:get_pos(), puncher:get_pos())
+		dir.y = 0.2
+		if self.touching_ground then
+			self:apply_knockback(dir, (damage / dist) * 8)
+		end
+		self:hurt(damage)
+	end
 	if add_wear then
 		local wear = floor((tool_caps.full_punch_interval / 75) * 9000)
 		tool:add_wear(wear)
