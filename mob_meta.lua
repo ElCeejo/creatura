@@ -847,7 +847,7 @@ function mob:on_step(dtime, moveresult)
 		self:_vitals()
 	end
 	if self._physics then
-		self:_physics()
+		self:_physics(moveresult)
 	end
 	self._prop_tick = prop_tick
 	if self:timer(10) then self:store_nearby_objects() end -- Reduce expensive calls
