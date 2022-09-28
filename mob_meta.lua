@@ -1167,7 +1167,7 @@ function mob:_vitals()
 			if on_ground then
 				damage = fall_start - pos.y
 				if damage < max_fall then
-					damage = nil
+					damage = 0
 				else
 					local resist = self.fall_resistance or 0
 					damage = damage - damage * resist

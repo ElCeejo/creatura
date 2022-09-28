@@ -9,11 +9,11 @@ creatura.api = {}
 local floor = math.floor
 local random = math.random
 
-local function clamp(val, min, max)
-	if val < min then
-		val = min
-	elseif max < val then
-		val = max
+local function clamp(val, min_n, max_n)
+	if val < min_n then
+		val = min_n
+	elseif max_n < val then
+		val = max_n
 	end
 	return val
 end
