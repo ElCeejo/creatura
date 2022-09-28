@@ -336,7 +336,7 @@ minetest.register_on_generated(function(minp, maxp)
 				local mob = #mobs > 0 and mobs[random(#mobs)]
 				if mob then
 					local spawn = creatura.registered_mob_spawns[mob]
-					for y = max_y, min_y, -1 do
+					for y = min_y, max_y do
 						if y > spawn.max_height
 						or y < spawn.min_height then
 							break
@@ -476,6 +476,21 @@ minetest.register_abm({
 local abr = (tonumber(minetest.get_mapgen_setting("active_block_range")) or 4) * 16
 local max_per_block = tonumber(minetest.settings:get("creatura_mapblock_limit")) or 99
 
+local function can_spawn(pos, width, height)
+	local pos2
+	local w_iter = width / math.ceil(width)
+	for y = 0, height, height / math.ceil(height) do
+		for z = -width, width, w_iter do
+			for x = -width, width, w_iter do
+				pos2 = {x = pos.x + x, y = pos.y + y, z = pos.z + z}
+				local def = creatura.get_node_def(pos2)
+				if def.walkable then return false end
+			end
+		end
+	end
+	return true
+end
+
 function creatura.register_abm_spawn(mob, def)
 	local chance = def.chance or 3000
 	local interval = def.interval or 30
@@ -497,12 +512,10 @@ function creatura.register_abm_spawn(mob, def)
 			pos.y = pos.y + 1
 		end
 
-		if spawn_on_load -- Manual checks for LBMs
-		and (random(chance) > 1
-		or not minetest.find_node_near(pos, 1, neighbors)
-		or pos.y > max_height
-		or pos.y < min_height) then
-			return
+		if spawn_on_load  then -- Manual checks for LBMs
+			if random(chance) > 1 then return end
+			if not minetest.find_node_near(pos, 1, neighbors) then return end
+			if pos.y > max_height or pos.y < min_height then return end
 		end
 
 		local light = minetest.get_node_light(pos) or 7
@@ -540,9 +553,9 @@ function creatura.register_abm_spawn(mob, def)
 
 		local mob_def = minetest.registered_entities[mob]
 		local mob_width = mob_def.collisionbox[4]
-		local mob_height = math.max(0, mob_def.collisionbox[5] - mob_def.collisionbox[2])
+		local mob_height = mob_def.collisionbox[5]
 
-		if not creatura.is_pos_moveable(pos, mob_width, mob_height) then
+		if not can_spawn(pos, mob_width, mob_height) then
 			return
 		end
 
@@ -556,7 +569,7 @@ function creatura.register_abm_spawn(mob, def)
 					y = pos.y,
 					z = pos.x + random(-offset, offset),
 				}, 3)
-				if not creatura.is_pos_moveable(spawn_pos, mob_width, mob_height) then
+				if not can_spawn(spawn_pos, mob_width, mob_height) then
 					spawn_pos = pos
 				end
 				local obj = minetest.add_entity(spawn_pos, mob)
@@ -581,7 +594,6 @@ function creatura.register_abm_spawn(mob, def)
 			end
 		end
 
-
 		minetest.log("action",
 			"[Creatura] [ABM Spawning] Spawned " .. group_size .. " " .. mob .. " at " .. minetest.pos_to_string(pos))
 
@@ -593,8 +605,8 @@ function creatura.register_abm_spawn(mob, def)
 			label = mob .. " spawning",
 			nodenames = nodes,
 			run_at_every_load = false,
-			action = function(pos)
-				spawn_func(pos)
+			action = function(pos, ...)
+				spawn_func(pos, ...)
 			end
 		})
 	else

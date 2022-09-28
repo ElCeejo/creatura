@@ -160,21 +160,23 @@ function creatura.get_ground_level(pos, range)
 end
 
 function creatura.is_pos_moveable(pos, width, height)
-	local pos1 = {
+	local edge1 = {
 		x = pos.x - (width + 0.2),
 		y = pos.y,
 		z = pos.z - (width + 0.2),
 	}
-	local pos2 = {
+	local edge2 = {
 		x = pos.x + (width + 0.2),
 		y = pos.y,
 		z = pos.z + (width + 0.2),
 	}
-	for z = pos1.z, pos2.z do
-		for x = pos1.x, pos2.x do
-			local pos3 = {x = x, y = pos.y + height, z = z}
-			local pos4 = {x = x, y = pos.y + 0.01, z = z}
-			local ray = minetest.raycast(pos3, pos4, false, false)
+	local base_p = {x = pos.x, y = pos.y, z = pos.z}
+	local top_p = {x = pos.x, y = pos.y + height, z = pos.z}
+	for z = edge1.z, edge2.z do
+		for x = edge1.x, edge2.x do
+			base_p.x, base_p.z = pos.x + x, pos.z + z
+			top_p.x, top_p.z = pos.x + x, pos.z + z
+			local ray = minetest.raycast(base_p, top_p, false, false)
 			for pointed_thing in ray do
 				if pointed_thing.type == "node" then
 					local name = get_node(pointed_thing.under).name

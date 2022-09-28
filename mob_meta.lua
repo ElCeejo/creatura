@@ -1156,7 +1156,7 @@ function mob:_vitals()
 	local pos = self.stand_pos
 	local node = self.stand_node
 	if not pos or not node then return end
-	local max_fall = self.max_fall or 0
+	local max_fall = self.max_fall or 3
 	local in_liquid = self.in_liquid
 	local on_ground = self.touching_ground
 	local damage
@@ -1168,12 +1168,14 @@ function mob:_vitals()
 				damage = fall_start - pos.y
 				if damage < max_fall then
 					damage = nil
+				else
+					local resist = self.fall_resistance or 0
+					damage = damage - damage * resist
+					fall_start = nil
 				end
-				local resist = self.fall_resistance or 0
-				damage = damage - damage * resist
-				self._fall_start = nil
 			end
 		end
+		self._fall_start = fall_start
 	end
 	if self:timer(1) then
 		local stand_def = creatura.get_node_def(node.name)
