@@ -1159,7 +1159,7 @@ function mob:_vitals()
 	local max_fall = self.max_fall or 3
 	local in_liquid = self.in_liquid
 	local on_ground = self.touching_ground
-	local damage
+	local damage = 0
 	if max_fall > 0
 	and not in_liquid then
 		local fall_start = self._fall_start or (not on_ground and pos.y)
@@ -1204,7 +1204,7 @@ function mob:_vitals()
 			damage = (damage or 0) + stand_def.damage_per_second * resist
 		end
 	end
-	if damage then
+	if damage > 0 then
 		self:hurt(damage)
 		self:indicate_damage()
 		if random(4) < 2 then
