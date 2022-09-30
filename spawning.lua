@@ -258,7 +258,7 @@ local function execute_spawns(player)
 
 			local bounds_in = tod >= min_time and tod <= max_time
 			local bounds_ex = tod >= max_time or tod <= min_time
-	
+
 			if (max_time > min_time and not bounds_in)
 			or (min_time > max_time and not bounds_ex) then
 				return
