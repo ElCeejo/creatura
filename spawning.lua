@@ -26,9 +26,7 @@ local function vec_raise(v, n)
 	return {x = v.x, y = v.y + n, z = v.z}
 end
 
-local vec_sub = vector.subtract
-local vec_add = vector.add
-
+local vec_add, vec_dist, vec_sub = vector.add, vector.distance, vector.subtract
 
 -- Registration --
 
@@ -118,6 +116,8 @@ function creatura.register_mob_spawn(name, def)
 		chance = def.chance or 5,
 		min_height = def.min_height or 0,
 		max_height = def.max_height or 128,
+		min_time = def.min_time or 0,
+		max_time = def.max_time or 24000,
 		min_light = def.min_light or 6,
 		max_light = def.max_light or 15,
 		min_group = def.min_group or 1,
@@ -249,6 +249,19 @@ local function execute_spawns(player)
 
 			if not spawn.spawn_in_nodes then
 				spawn_pos = vec_raise(spawn_pos, 1)
+			end
+
+			local tod = (minetest.get_timeofday() or 0) * 24000
+
+			local min_time = spawn.min_time
+			local max_time = spawn.max_time
+
+			local bounds_in = tod >= min_time and tod <= max_time
+			local bounds_ex = tod >= max_time or tod <= min_time
+	
+			if (max_time > min_time and not bounds_in)
+			or (min_time > max_time and not bounds_ex) then
+				return
 			end
 
 			local light = minetest.get_node_light(spawn_pos) or 7
@@ -420,6 +433,7 @@ minetest.register_abm({
 			for i = 1, #creatura.registered_on_spawns[name] do
 				local func = creatura.registered_on_spawns[name][i]
 				func(obj:get_luaentity(), pos)
+				if not obj:get_yaw() then break end
 			end
 		end
 	end,
@@ -475,6 +489,7 @@ minetest.register_abm({
 
 local abr = (tonumber(minetest.get_mapgen_setting("active_block_range")) or 4) * 16
 local max_per_block = tonumber(minetest.settings:get("creatura_mapblock_limit")) or 99
+local min_abm_dist = tonumber(minetest.settings:get("creatura_min_abm_dist")) or 32
 
 local function can_spawn(pos, width, height)
 	local pos2
@@ -496,6 +511,8 @@ function creatura.register_abm_spawn(mob, def)
 	local interval = def.interval or 30
 	local min_height = def.min_height or 0
 	local max_height = def.max_height or 128
+	local min_time = def.min_time or 0
+	local max_time = def.max_time or 24000
 	local min_light = def.min_light or 1
 	local max_light = def.max_light or 15
 	local min_group = def.min_group or 1
@@ -516,6 +533,16 @@ function creatura.register_abm_spawn(mob, def)
 			if random(chance) > 1 then return end
 			if not minetest.find_node_near(pos, 1, neighbors) then return end
 			if pos.y > max_height or pos.y < min_height then return end
+		end
+
+		local tod = (minetest.get_timeofday() or 0) * 24000
+
+		local bounds_in = tod >= min_time and tod <= max_time
+		local bounds_ex = tod >= max_time or tod <= min_time
+
+		if (max_time > min_time and not bounds_in)
+		or (min_time > max_time and not bounds_ex) then
+			return
 		end
 
 		local light = minetest.get_node_light(pos) or 7
@@ -544,7 +571,12 @@ function creatura.register_abm_spawn(mob, def)
 					return
 				end
 			end
-			plyr_found = plyr_found or object:is_player()
+			if object:is_player() then
+				plyr_found = true
+				if vec_dist(pos, object:get_pos()) < min_abm_dist then
+					return
+				end
+			end
 		end
 
 		if not plyr_found then
@@ -579,6 +611,7 @@ function creatura.register_abm_spawn(mob, def)
 					for i = 1, #creatura.registered_on_spawns[mob] do
 						local func = creatura.registered_on_spawns[mob][i]
 						func(obj:get_luaentity(), pos)
+						if not obj:get_yaw() then break end
 					end
 				end
 			end
@@ -590,6 +623,7 @@ function creatura.register_abm_spawn(mob, def)
 				for i = 1, #creatura.registered_on_spawns[mob] do
 					local func = creatura.registered_on_spawns[mob][i]
 					func(obj:get_luaentity(), pos)
+					if not obj:get_yaw() then break end
 				end
 			end
 		end
