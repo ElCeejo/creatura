@@ -461,7 +461,8 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 		local dist = vec_dist(self.object:get_pos(), puncher:get_pos())
 		dir.y = 0.2
 		if self.touching_ground then
-			self:apply_knockback(dir, (damage / dist) * 8)
+			local power = clamp((damage / dist) * 8, 0, 8)
+			self:apply_knockback(dir, power)
 		end
 		self:hurt(damage)
 	end

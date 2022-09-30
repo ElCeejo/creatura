@@ -741,10 +741,15 @@ function mob:activate(staticdata, dtime)
 	end
 
 	-- Staticdata
-	if staticdata then
-		local data = minetest.deserialize(staticdata)
-		if data then
-			for k, v in pairs(data) do
+	local data = minetest.deserialize(staticdata)
+
+	if data then
+		local tp
+		for k, v in pairs(data) do
+			tp = type(v)
+			if tp ~= "function"
+			and tp ~= "nil"
+			and tp ~= "userdata" then
 				self[k] = v
 			end
 		end
