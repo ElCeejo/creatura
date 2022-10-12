@@ -40,7 +40,7 @@ local dir2yaw = minetest.dir_to_yaw
 		texture = tex or "creatura_particle_red.png",
 		expirationtime = time or 0.1,
 		glow = 16,
-		size = 16
+		size = 24
 	})
 end]]
 
@@ -104,7 +104,7 @@ end]]
 end]]
 
 local get_node_def = creatura.get_node_def
-local get_node_height = creatura.get_node_height_from_def
+--local get_node_height = creatura.get_node_height_from_def
 
 function creatura.get_collision_ranged(self, dir, range)
 	local pos, yaw = self.object:get_pos(), self.object:get_yaw()
@@ -114,13 +114,17 @@ function creatura.get_collision_ranged(self, dir, range)
 	pos.y = pos.y + 0.01
 	dir = vec_normal(dir or yaw2dir(yaw))
 	yaw = dir2yaw(dir)
-	local ahead = vec_add(pos, vec_multi(dir, width))
+	local outset = math.floor(width)
+	if outset < 0.5 then outset = 0.5 end
+	local ahead = vec_add(pos, vec_multi(dir, outset))
+	local height_half = self.height * 0.5
+	local center_y = pos.y + height_half
 	-- Loop
 	local cos_yaw = cos(yaw)
 	local sin_yaw = sin(yaw)
 	local pos_x, pos_y, pos_z = ahead.x, ahead.y, ahead.z
 	local dir_x, dir_y, dir_z = dir.x, dir.y, dir.z
-	local dist
+	local danger = 0
 	local collision
 	for _ = 0, range or 4 do
 		pos_x = pos_x + dir_x
@@ -135,13 +139,14 @@ function creatura.get_collision_ranged(self, dir, range)
 			}
 			for y = 0, height, height / ceil(height) do
 				pos2.y = pos_y + y
-				local dist2 = vec_dist(pos, pos2)
-				if not dist
-				or dist2 < dist then
-					if pos2.y - pos_y > (self.stepheight or 1.1)
-					and get_node_def(pos2).walkable then
+				if pos2.y - pos_y > (self.stepheight or 1.1)
+				and get_node_def(pos2).walkable then
+					local dist_dngr = (height_half - abs(center_y - pos2.y)) / height_half
+					local field_dngr = vec_dot(dir, vec_normal(vec_dir(pos, pos2)))
+					local ttl_dngr = dist_dngr + field_dngr
+					if ttl_dngr > danger then
+						danger = ttl_dngr
 						collision = pos2
-						dist = dist2
 					end
 				end
 			end
@@ -192,7 +197,7 @@ local function get_avoidance_dir(self)
 		vel.y = 0
 		local vel_len = vec_len(vel) * (1 + (self.step_delay or 0))
 		local ahead = vec_add(pos, vec_normal(vel))
-		local avoidance_force = vector.subtract(ahead, col_pos)
+		local avoidance_force = vec_sub(ahead, col_pos)
 		avoidance_force.y = 0
 		avoidance_force = vec_multi(vec_normal(avoidance_force), (vel_len > 1 and vel_len) or 1)
 		return vec_dir(pos, vec_add(ahead, avoidance_force))
@@ -210,7 +215,7 @@ local steer_directions = {
 	vec_normal({x = -1, y = 0, z = 1})
 }
 
-function creatura.get_context_steering(self, goal, range)
+--[[function creatura.get_context_steering(self, goal, range)
 	local pos, vel = self.object:get_pos(), self.object:get_velocity()
 	if not pos then return end
 	local heading = vec_normal(vel)
@@ -246,13 +251,69 @@ function creatura.get_context_steering(self, goal, range)
 				local ahead = vec_add(pos, vec_multi(heading, self.width + dist2col))
 				local avd_force = vec_normal(vec_sub(ahead, collision))
 				dir.y = avd_force.y / 4
-				local dot_weight = vec_dot(vec_normal(dir2col), dir)
+				local dot_weight = vec_dot(vec_normal(dir2col), dir2goal)
 				local dist_weight = (range - dist2col) / range
 				interest = interest - dot_weight
 				danger = dist_weight
 			end
 		end
 		score = clamp(interest - danger, 0, 1)
+		output_dir = vector.add(output_dir, vector.multiply(dir, score))
+	end
+	return output_dir
+end]]
+
+local function get_collision_single(pos)
+	local pos2 = {x = pos.x, y = pos.y, z = pos.z}
+	if get_node_def(pos2).walkable then
+		pos2.y = pos.y + 1
+		local col_max = get_node_def(pos2).walkable
+		pos2.y = pos.y - 1
+		local col_min = col_max and get_node_def(pos2).walkable
+		if col_min then
+			return pos
+		else
+			pos2.y = pos.y + 1
+			return pos2
+		end
+	end
+end
+
+function creatura.get_context_steering(self, goal, range)
+	local pos, yaw = self.object:get_pos(), self.object:get_yaw()
+	if not pos or not yaw then return end
+	range = range or 8; if range < 2 then range = 2 end
+	local width, height = self.width, self.height
+	local dir2goal = vec_normal(vec_dir(pos, goal))
+	local output_dir = {x = 0, y = 0, z = 0}
+	pos.y = (pos.y + height * 0.5)
+
+	local collision
+	local dir2col
+	local dir
+	for _, _dir in ipairs(steer_directions) do
+		dir = {x = _dir.x, y = 0, z = _dir.z}
+		local score = vec_dot(dir2goal, dir)
+		local interest = clamp(score, 0, 1)
+		local danger = 0
+		if interest > 0 then
+			if width <= 0.5
+			and height <= 1 then
+				collision = get_collision_single(vec_add(pos, dir))
+			else
+				_, collision = creatura.get_collision_ranged(self, dir, range)
+			end
+			if collision then
+				dir2col = vec_normal(vec_dir(pos, collision))
+				local dist2col = vec_dist(pos, collision) - width
+				dir.y = dir2col.y * -1
+				local dot_weight = vec_dot(dir2col, dir2goal)
+				local dist_weight = (range - dist2col) / range
+				interest = interest - dot_weight
+				danger = dist_weight
+			end
+		end
+		score = interest - danger
 		output_dir = vector.add(output_dir, vector.multiply(dir, score))
 	end
 	return output_dir
@@ -508,7 +569,7 @@ creatura.register_movement_method("creatura:context_based_steering", function(se
 		end
 		-- Calculate Movement
 		steer_timer = (steer_timer > 0 and steer_timer - self.dtime) or 0.25
-		steer_to = (steer_timer <= 0 and creatura.get_context_steering(self, goal, 2)) or steer_to
+		steer_to = (steer_timer <= 0 and creatura.get_context_steering(self, goal, 3)) or steer_to
 		local speed = abs(_self.speed or 2) * speed_factor or 0.5
 		local turn_rate = abs(_self.turn_rate or 5)
 		-- Apply Movement
