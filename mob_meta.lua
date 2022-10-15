@@ -459,7 +459,7 @@ end
 
 function mob:set_scale(x)
 	local def = minetest.registered_entities[self.name]
-	local scale = def.visual_size
+	local scale = def.visual_size or {x = 1, y = 1}
 	local box = def.collisionbox
 	local new_box = {}
 	for k, v in ipairs(box) do
@@ -559,7 +559,8 @@ end
 
 local function is_group_in_table(tbl, name)
 	for _, v in pairs(tbl) do
-		if minetest.get_item_group(name, v:split(":")[2]) > 0 then
+		if type(v) == "string"
+		and minetest.get_item_group(name, v:split(":")[2]) > 0 then
 			return true
 		end
 	end

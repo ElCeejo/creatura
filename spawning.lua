@@ -41,8 +41,8 @@ end
 
 function creatura.register_spawn_egg(name, col1, col2, inventory_image) -- deprecated
 	if col1 and col2 then
-		local base = "(creatura_spawning_crystal.png^[multiply:#" .. col1 .. ")"
-		local spots = "(creatura_spawning_crystal_overlay.png^[multiply:#" .. col2 .. ")"
+		local base = "(creatura_spawning_crystal_primary.png^[multiply:#" .. col1 .. ")"
+		local spots = "(creatura_spawning_crystal_secondary.png^[multiply:#" .. col2 .. ")"
 		inventory_image = base .. "^" .. spots
 	end
 	local mod_name = name:split(":")[1]
@@ -73,8 +73,8 @@ function creatura.register_spawn_item(name, def)
 	local inventory_image
 	if not def.inventory_image
 	and def.col1 and def.col2 then
-		local base = "(creatura_spawning_crystal.png^[multiply:#" .. def.col1 .. ")"
-		local spots = "(creatura_spawning_crystal_overlay.png^[multiply:#" .. def.col2 .. ")"
+		local base = "(creatura_spawning_crystal_primary.png^[multiply:#" .. def.col1 .. ")"
+		local spots = "(creatura_spawning_crystal_secondary.png^[multiply:#" .. def.col2 .. ")"
 		inventory_image = base .. "^" .. spots
 	end
 	local mod_name = name:split(":")[1]
