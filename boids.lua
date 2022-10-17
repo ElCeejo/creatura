@@ -111,13 +111,15 @@ function creatura.get_boid_dir(self)
 	for _, object in ipairs(boids) do
 		if object then
 			boid_pos, vel = object:get_pos(), object:get_velocity()
-			local obj_yaw = object:get_yaw()
-			pos_no, pos_sum = pos_no + 1, vec_add(pos_sum, boid_pos)
-			sum_sin, sum_cos = sum_sin + sin(obj_yaw), sum_cos + cos(obj_yaw)
-			lift_no, lift_sum = lift_no + 1, lift_sum + vel.y
-			if not closest_pos
-			or vec_dist(pos, boid_pos) < vec_dist(pos, closest_pos) then
-				closest_pos = boid_pos
+			if boid_pos then
+				local obj_yaw = object:get_yaw()
+				pos_no, pos_sum = pos_no + 1, vec_add(pos_sum, boid_pos)
+				sum_sin, sum_cos = sum_sin + sin(obj_yaw), sum_cos + cos(obj_yaw)
+				lift_no, lift_sum = lift_no + 1, lift_sum + vel.y
+				if not closest_pos
+				or vec_dist(pos, boid_pos) < vec_dist(pos, closest_pos) then
+					closest_pos = boid_pos
+				end
 			end
 		end
 	end

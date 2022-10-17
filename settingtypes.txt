@@ -22,6 +22,9 @@ creatura_mapblock_limit (Max Mobs per Mapblock) int 99
 # Minimum distance to a player for ABM Spawning
 creatura_min_abm_dist (Minimum ABM Spawning Distance) int 32
 
+# Allows Mobs to spawn in protected areas
+creatura_protected_spawn (Protected Area Spawning) bool true
+
 # Allotted time (in μs) per step for A* pathfinding (lower means less lag but slower pathfinding)
 creatura_a_star_alloted_time (A* Pathfinding Alloted time per step) int 500
 

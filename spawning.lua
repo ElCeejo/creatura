@@ -311,6 +311,7 @@ local spawn_step = tonumber(minetest.settings:get("creatura_spawn_step")) or 15
 local spawn_tick = 0
 
 minetest.register_globalstep(function(dtime)
+	if #creatura.registered_mob_spawns < 1 then return end
 	spawn_tick = spawn_tick - dtime
 	if spawn_tick <= 0 then
 		for _, player in ipairs(minetest.get_connected_players()) do
@@ -487,6 +488,7 @@ minetest.register_abm({
 	spawn_cap = 5
 })]]
 
+local protected_spawn = minetest.settings:get_bool("creatura_protected_spawn", true)
 local abr = (tonumber(minetest.get_mapgen_setting("active_block_range")) or 4) * 16
 local max_per_block = tonumber(minetest.settings:get("creatura_mapblock_limit")) or 99
 local min_abm_dist = tonumber(minetest.settings:get("creatura_min_abm_dist")) or 32
@@ -517,6 +519,7 @@ function creatura.register_abm_spawn(mob, def)
 	local max_light = def.max_light or 15
 	local min_group = def.min_group or 1
 	local max_group = def.max_group or 4
+	local block_protected = def.block_protected_spawn or false
 	local nodes = def.nodes or {"group:soil", "group:stone"}
 	local neighbors = def.neighbors or {"air"}
 	local spawn_on_load = def.spawn_on_load or false
@@ -527,6 +530,12 @@ function creatura.register_abm_spawn(mob, def)
 
 		if not spawn_in_nodes then
 			pos.y = pos.y + 1
+		end
+
+		if (not protected_spawn
+		or block_protected)
+		and minetest.is_protected(pos, "") then
+			return
 		end
 
 		if spawn_on_load  then -- Manual checks for LBMs

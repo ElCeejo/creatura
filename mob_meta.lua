@@ -1187,7 +1187,7 @@ function mob:_vitals()
 		local stand_def = creatura.get_node_def(node.name)
 		if not self.max_breath
 		or self.max_breath > 0 then
-			local head_pos = vec_raise(pos, self.height)
+			local head_pos = vec_raise(pos, self.height - 0.01)
 			local head_node = minetest.get_node(head_pos)
 			if minetest.get_item_group(head_node.name, "liquid") > 0
 			or creatura.get_node_def(head_node.name).walkable then
