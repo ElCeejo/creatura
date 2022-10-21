@@ -520,6 +520,7 @@ function creatura.register_abm_spawn(mob, def)
 	local min_group = def.min_group or 1
 	local max_group = def.max_group or 4
 	local block_protected = def.block_protected_spawn or false
+	local biomes = def.biomes or {}
 	local nodes = def.nodes or {"group:soil", "group:stone"}
 	local neighbors = def.neighbors or {"air"}
 	local spawn_on_load = def.spawn_on_load or false
@@ -564,6 +565,20 @@ function creatura.register_abm_spawn(mob, def)
 		if aocw
 		and aocw >= max_per_block then
 			return
+		end
+
+		if biomes
+		and #biomes > 0 then
+			local biome_id = minetest.get_biome_data(pos).biome
+			local biome_name = minetest.get_biome_name(biome_id)
+			local is_spawn_biome = false
+			for _, biome in ipairs(biomes) do
+				if biome:match("^" .. biome_name) then
+					is_spawn_biome = true
+					break
+				end
+			end
+			if not is_spawn_biome then return end
 		end
 
 		local mob_count = 0
