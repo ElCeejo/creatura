@@ -17,7 +17,10 @@ creatura_mapgen_spawning (Mapgen Spawning) bool true
 creatura_mapgen_spawn_interval (Mapgen Spawning Interval) int 5
 
 # How many Mobs can be a in a Mapblock before ABM spawning is blocked
-creatura_mapblock_limit (Max Mobs per Mapblock) int 99
+creatura_mapblock_limit (Max Mobs per Mapblock) int 12
+
+# How many Mobs can be within Active Block Send Range of an attempted spawn before stopping attempt
+creatura_abr_limit (Max Mobs within ABR) int 24
 
 # Minimum distance to a player for ABM Spawning
 creatura_min_abm_dist (Minimum ABM Spawning Distance) int 32

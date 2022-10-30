@@ -490,7 +490,8 @@ minetest.register_abm({
 
 local protected_spawn = minetest.settings:get_bool("creatura_protected_spawn", true)
 local abr = (tonumber(minetest.get_mapgen_setting("active_block_range")) or 4) * 16
-local max_per_block = tonumber(minetest.settings:get("creatura_mapblock_limit")) or 99
+local max_per_block = tonumber(minetest.settings:get("creatura_mapblock_limit")) or 12
+local max_in_abr = tonumber(minetest.settings:get("creatura_abr_limit")) or 24
 local min_abm_dist = tonumber(minetest.settings:get("creatura_min_abm_dist")) or 32
 
 local function can_spawn(pos, width, height)
@@ -591,7 +592,8 @@ function creatura.register_abm_spawn(mob, def)
 			if ent
 			and ent.name == mob then
 				mob_count = mob_count + 1
-				if mob_count > spawn_cap then
+				if mob_count > spawn_cap
+				or mob_count > max_in_abr then
 					return
 				end
 			end
