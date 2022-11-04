@@ -19,8 +19,10 @@ end)
 -- Math --
 
 local abs = math.abs
+local ceil = math.ceil
 local pi = math.pi
 local random = math.random
+local min, max = math.min, math.max
 
 local function vec_raise(v, n)
 	return {x = v.x, y = v.y + n, z = v.z}
@@ -237,7 +239,7 @@ local function execute_spawns(player)
 			spawn_on)
 		if spawn_y_array[1] then
 			local spawn_pos = spawn_y_array[1]
-			local dist = vector.distance(pos, spawn_pos)
+			local dist = vec_dist(pos, spawn_pos)
 			if dist < min_spawn_radius or dist > max_spawn_radius then
 				return
 			end
@@ -273,13 +275,14 @@ local function execute_spawns(player)
 
 			local mob_def = minetest.registered_entities[mob]
 			local mob_width = mob_def.collisionbox[4]
-			local mob_height = math.max(0, mob_def.collisionbox[5] - mob_def.collisionbox[2])
+			local mob_height = max(0, mob_def.collisionbox[5] - mob_def.collisionbox[2])
 
 			if not creatura.is_pos_moveable(spawn_pos, mob_width, mob_height) then
 				return
 			end
 
 			local group_size = random(spawn.min_group or 1, spawn.max_group or 1)
+			group_size = min(spawn.spawn_cap - object_count, group_size)
 
 			if spawn.spawn_cluster then
 				minetest.add_node(spawn_pos, {name = "creatura:spawn_node"})
@@ -496,8 +499,8 @@ local min_abm_dist = tonumber(minetest.settings:get("creatura_min_abm_dist")) or
 
 local function can_spawn(pos, width, height)
 	local pos2
-	local w_iter = width / math.ceil(width)
-	for y = 0, height, height / math.ceil(height) do
+	local w_iter = width / ceil(width)
+	for y = 0, height, height / ceil(height) do
 		for z = -width, width, w_iter do
 			for x = -width, width, w_iter do
 				pos2 = {x = pos.x + x, y = pos.y + y, z = pos.z + z}
@@ -621,11 +624,11 @@ function creatura.register_abm_spawn(mob, def)
 
 		if group_size > 1 then
 			for _ = 1, group_size do
-				local offset = math.ceil(mob_width)
+				local offset = ceil(mob_width)
 				local spawn_pos = creatura.get_ground_level({
 					x = pos.x + random(-offset, offset),
 					y = pos.y,
-					z = pos.x + random(-offset, offset),
+					z = pos.z + random(-offset, offset)
 				}, 3)
 				if not can_spawn(spawn_pos, mob_width, mob_height) then
 					spawn_pos = pos

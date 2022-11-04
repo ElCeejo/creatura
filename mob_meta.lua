@@ -391,13 +391,13 @@ function mob:get_wander_pos_3d(min_range, max_range, dir, vert_bias)
 	return pos2
 end
 
-function mob:is_pos_safe(pos)
+function mob:is_pos_safe(pos, ignore_liquid)
 	if not pos then return end
-	local node = minetest.get_node(pos)
-	if not node then return false end
-	if minetest.get_item_group(node.name, "igniter") > 0
-	or creatura.get_node_def(node.name).drawtype == "liquid"
-	or creatura.get_node_def(vec_raise(pos, -1)).drawtype == "liquid" then return false end
+	local n_def = creatura.get_node_def(pos)
+	if minetest.get_item_group(n_def.name, "igniter") > 0
+	or (not ignore_liquid
+	and (n_def.drawtype == "liquid"
+	or creatura.get_node_def(vec_raise(pos, -1)).drawtype == "liquid")) then return false end
 	local fall_safe = false
 	if self.max_fall ~= 0 then
 		for i = 1, self.max_fall or 3 do
@@ -1169,16 +1169,16 @@ function mob:_vitals()
 	if max_fall > 0
 	and not in_liquid then
 		local fall_start = self._fall_start or (not on_ground and pos.y)
-		if fall_start then
-			if on_ground then
-				damage = fall_start - pos.y
-				if damage < max_fall then
-					damage = 0
-				else
-					local resist = self.fall_resistance or 0
-					damage = damage - damage * resist
-					fall_start = nil
-				end
+		if fall_start
+		and on_ground then
+			damage = fall_start - pos.y
+			if damage < max_fall then
+				damage = 0
+				fall_start = nil
+			else
+				local resist = self.fall_resistance or 0
+				damage = damage - damage * resist
+				fall_start = nil
 			end
 		end
 		self._fall_start = fall_start

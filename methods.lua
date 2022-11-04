@@ -294,6 +294,7 @@ local function get_collision_single(pos, water)
 end
 
 function creatura.get_context_steering(self, goal, range, water)
+	if not goal then return end
 	local pos, yaw = self.object:get_pos(), self.object:get_yaw()
 	if not pos or not yaw then return end
 	range = range or 8; if range < 2 then range = 2 end
@@ -578,7 +579,7 @@ creatura.register_movement_method("creatura:context_based_steering", function(se
 	self:set_gravity(-9.8)
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
-		if not pos then return end
+		if not pos or not goal then return end
 		if vec_dist(pos, goal) < clamp(self.width, 0.5, 1) then
 			_self:halt()
 			return true
