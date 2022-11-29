@@ -148,6 +148,7 @@ local function turn(self, tyaw, rate)
 	if not yaw then return end
 	local step = math.min(self.dtime * rate, abs(diff(yaw, tyaw)) % (pi2))
 	rot.y = interp_rad(yaw, tyaw, step)
+	if rot.y ~= rot.y then return end
 	self.object:set_rotation(rot)
 end
 
@@ -205,7 +206,7 @@ function mob:do_velocity()
 	local data = self._movement_data or {}
 	local vel = self.object:get_velocity()
 	local yaw = self.object:get_yaw()
-	if not yaw then return end
+	if not vel or not yaw then return end
 	local horz_vel = data.horz_vel --or (data.gravity >= 0 and 0)
 	local vert_vel = data.vert_vel --or (data.gravity >= 0 and 0)
 	vel.x = (horz_vel and (sin(yaw) * -horz_vel)) or vel.x
@@ -1169,16 +1170,16 @@ function mob:_vitals()
 	if max_fall > 0
 	and not in_liquid then
 		local fall_start = self._fall_start or (not on_ground and pos.y)
-		if fall_start
-		and on_ground then
-			damage = fall_start - pos.y
-			if damage < max_fall then
-				damage = 0
-				fall_start = nil
-			else
-				local resist = self.fall_resistance or 0
-				damage = damage - damage * resist
-				fall_start = nil
+		if fall_start then
+			if on_ground then
+				damage = fall_start - pos.y
+				if damage < max_fall then
+					damage = 0
+				else
+					local resist = self.fall_resistance or 0
+					damage = damage - damage * resist
+					fall_start = nil
+				end
 			end
 		end
 		self._fall_start = fall_start

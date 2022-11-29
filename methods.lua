@@ -331,7 +331,7 @@ function creatura.get_context_steering(self, goal, range, water)
 		score = interest - danger
 		output_dir = vector.add(output_dir, vector.multiply(dir, score))
 	end
-	return output_dir
+	return vec_normal(output_dir)
 end
 
 -------------
