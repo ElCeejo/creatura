@@ -74,9 +74,12 @@ end
 function creatura.register_spawn_item(name, def)
 	local inventory_image
 	if not def.inventory_image
-	and def.col1 and def.col2 then
-		local base = "(creatura_spawning_crystal_primary.png^[multiply:#" .. def.col1 .. ")"
-		local spots = "(creatura_spawning_crystal_secondary.png^[multiply:#" .. def.col2 .. ")"
+	and ((def.col1 and def.col2)
+	or (def.hex_primary and def.hex_secondary)) then
+		local primary = def.col1 or def.hex_primary
+		local secondary = def.col2 or def.hex_secondary
+		local base = "(creatura_spawning_crystal_primary.png^[multiply:#" .. primary .. ")"
+		local spots = "(creatura_spawning_crystal_secondary.png^[multiply:#" .. secondary .. ")"
 		inventory_image = base .. "^" .. spots
 	end
 	local mod_name = name:split(":")[1]
@@ -103,6 +106,9 @@ function creatura.register_spawn_item(name, def)
 		if object then
 			object:set_yaw(random(0, pi * 2))
 			object:get_luaentity().last_yaw = object:get_yaw()
+			if def.on_spawn then
+				def.on_spawn(object:get_luaentity(), player)
+			end
 		end
 		if not minetest.is_creative_enabled(player:get_player_name())
 		or def.consume_in_creative then
