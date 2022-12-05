@@ -495,7 +495,7 @@ local protected_spawn = minetest.settings:get_bool("creatura_protected_spawn", t
 local abr = (tonumber(minetest.get_mapgen_setting("active_block_range")) or 4) * 16
 local max_per_block = tonumber(minetest.settings:get("creatura_mapblock_limit")) or 12
 local max_in_abr = tonumber(minetest.settings:get("creatura_abr_limit")) or 24
-local min_abm_dist = tonumber(minetest.settings:get("creatura_min_abm_dist")) or 32
+local min_abm_dist = min(abr / 2, tonumber(minetest.settings:get("creatura_min_abm_dist")) or 32)
 
 local function can_spawn(pos, width, height)
 	local pos2
