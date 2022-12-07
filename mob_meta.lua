@@ -763,6 +763,17 @@ function mob:activate(staticdata, dtime)
 		if textures then self.textures = textures end
 	end
 
+	if self.meshes then
+		local mesh_no = self.mesh_no or random(#self.meshes)
+		if self.mesh_textures then
+			self.textures = self.mesh_textures[mesh_no]
+		end
+		self.mesh_no = mesh_no
+		self.object:set_properties({
+			mesh = self.meshes[mesh_no]
+		})
+	end
+
 	if not self.perm_data then
 		if self.memory then
 			self.perm_data = self.memory
@@ -1237,6 +1248,7 @@ function creatura.register_mob(name, def)
 	def.physical = def.physical or true
 	def.collide_with_objects = def.collide_with_objects or false
 	def.visual = "mesh"
+	def.mesh = def.mesh or (def.meshes and def.meshes[1])
 	def.makes_footstep_sound = def.makes_footstep_sound or false
 	if def.static_save ~= false then
 		def.static_save = true
