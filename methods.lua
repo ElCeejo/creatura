@@ -412,7 +412,7 @@ end
 
 -- Pathfinding
 
-local function trim_path(pos, path)
+--[[local function trim_path(pos, path)
 	if #path < 2 then return end
 	local trim = false
 	local closest
@@ -428,7 +428,7 @@ local function trim_path(pos, path)
 		end
 	end
 	return path
-end
+end]]
 
 creatura.register_movement_method("creatura:theta_pathfind", function(self)
 	local path = {}
@@ -495,9 +495,10 @@ creatura.register_movement_method("creatura:pathfind", function(self)
 		steer_int = (not steer_to and steer_int > 0 and steer_int - _self.dtime) or 1 / math.max(speed, 1)
 		steer_to = (steer_int <= 0 and creatura.calc_steering(_self, goal)) or steer_to
 		if steer_to then
-			path = creatura.find_lvm_path(_self, pos, goal, _self.width, _self.height, 400) or {}
 			if #path > 0 then
 				steer_to = vec_dir(pos, path[2] or path[1])
+			else
+				path = creatura.find_lvm_path(_self, pos, goal, _self.width, _self.height, 400) or {}
 			end
 		end
 		-- Apply Movement
