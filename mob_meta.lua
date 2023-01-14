@@ -420,16 +420,42 @@ end
 
 -- Set mobs animation (if specified animation isn't already playing)
 
-function mob:animate(animation)
-	if not animation
-	or not self.animations[animation] then return end
+function mob:animate(animation, transition)
+	if not animation then return end
+	local transition_data = self._anim_transition or {}
+	if transition_data.child then
+		local parent, child = transition_data.parent, transition_data.child
+		local timer = transition_data.timer
+		if animation == parent
+		and transition == child then
+			timer = (timer > 0 and timer - self.dtime) or 0
+			transition_data.timer = timer
+			if timer <= 0 then
+				animation = child
+				transition_data = {}
+			end
+		end
+	else
+		transition_data = {}
+	end
+	self._anim_transition = transition_data
+	if not self.animations[animation] then return end
 	if not self._anim
 	or self._anim ~= animation then
 		local anim = self.animations[animation]
 		if anim[2] then anim = anim[random(#anim)] end
 		self.object:set_animation(anim.range, anim.speed, anim.frame_blend, anim.loop)
 		self._anim = animation
+		if transition then
+			local anim_length = (anim.range.y - anim.range.x) / anim.speed
+			self._anim_transition = {
+				parent = animation,
+				child = transition,
+				timer = anim_length
+			}
+		end
 	end
+	return animation
 end
 
 -- Set texture to variable at 'id' index in 'tbl' or 'textures'
@@ -1197,22 +1223,24 @@ function mob:_vitals()
 	end
 	if self:timer(1) then
 		local stand_def = creatura.get_node_def(node.name)
-		if not self.max_breath
-		or self.max_breath > 0 then
+		local max_breath = self.max_breath
+		if not max_breath
+		or max_breath > 0 then
+			local breath = self._breath or max_breath
 			local head_pos = vec_raise(pos, self.height - 0.01)
-			local head_node = minetest.get_node(head_pos)
-			if minetest.get_item_group(head_node.name, "liquid") > 0
-			or creatura.get_node_def(head_node.name).walkable then
-				if self._breath <= 0 then
+			local head_def = creatura.get_node_def(head_pos)
+			if minetest.get_item_group(head_def.name, "liquid") > 0
+			or (head_def.walkable
+			and head_def.drawtype == "normal") then
+				if breath <= 0 then
 					damage = (damage or 0) + 1
 				else
-					self._breath = self._breath - 1
-					self:memorize("_breath", self._breath)
+					breath = breath - 1
 				end
 			else
-				self._breath = self._breath + 1
-				self:memorize("_breath", self._breath)
+				breath = (breath < max_breath and breath + 1) or max_breath
 			end
+			self._breath = self:memorize("_breath", breath)
 		end
 		if (not self.fire_resistance
 		or self.fire_resistance < 1)
@@ -1253,7 +1281,7 @@ function creatura.register_mob(name, def)
 	if def.static_save ~= false then
 		def.static_save = true
 	end
-	def.collisionbox = hitbox
+	def.collisionbox = def.collisionbox or hitbox
 	def._creatura_mob = true
 
 	def.sounds = def.sounds or {}
