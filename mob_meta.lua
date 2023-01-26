@@ -861,6 +861,7 @@ function mob:staticdata()
 	data.perm_data = self.perm_data
 	data.hp = self.hp or self.max_health
 	data.texture_no = self.texture_no or random(#self.textures)
+	data.mesh_no = self.mesh_no or (self.meshes and random(#self.meshes))
 	return minetest.serialize(data)
 end
 

@@ -116,7 +116,7 @@ function creatura.register_spawn_item(name, def)
 			return itemstack
 		end
 	end
-	minetest.register_craftitem(mod_name .. ":spawn_" .. mob_name, def)
+	minetest.register_craftitem(def.itemstring or (mod_name .. ":spawn_" .. mob_name), def)
 end
 
 function creatura.register_mob_spawn(name, def)
