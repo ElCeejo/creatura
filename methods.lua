@@ -152,18 +152,23 @@ function creatura.get_avoidance_lift(self, pos2, range)
 	local check_pos = {x = pos2.x, y = center_y, z = pos2.z}
 
 	-- Find ceiling and floor collisions
+	local def
 	local ceil_pos
 	local floor_pos
 	for i = 1, range, 0.5 do -- 0.5 increment increases accuracy
 		if ceil_pos and floor_pos then break end
 		check_pos.y = center_y + i
+		def = creatura.get_node_def(check_pos)
 		if not ceil_pos
-		and creatura.get_node_def(check_pos).walkable then
+		and (def.walkable
+		or minetest.get_item_group(def.name, "liquid") > 0) then
 			ceil_pos = check_pos
 		end
 		check_pos.y = center_y - i
+		def = creatura.get_node_def(check_pos)
 		if not floor_pos
-		and creatura.get_node_def(check_pos).walkable then
+		and (def.walkable
+		or minetest.get_item_group(def.name, "liquid") > 0) then
 			floor_pos = check_pos
 		end
 	end

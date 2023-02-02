@@ -36,8 +36,8 @@ end
 local function get_sightline(pos1, pos2)
 	local dir = vec_dir(pos1, pos2)
 	local dist = vec_dist(pos1, pos2)
+	local pos
 	for i = 0, dist do
-		local pos
 		if dist > 0 then
 			pos = {
 				x = pos1.x + dir.x * (i / dist),
@@ -400,13 +400,10 @@ function mob:is_pos_safe(pos, ignore_liquid)
 	and (n_def.drawtype == "liquid"
 	or creatura.get_node_def(vec_raise(pos, -1)).drawtype == "liquid")) then return false end
 	local fall_safe = false
+	local fall_pos = {x = pos.x, y = floor(pos.y + 0.5), z = pos.z}
 	if self.max_fall ~= 0 then
-		for i = 1, self.max_fall or 3 do
-			local fall_pos = {
-				x = pos.x,
-				y = floor(pos.y + 0.5) - i,
-				z = pos.z
-			}
+		for _ = 1, self.max_fall or 3 do
+			fall_pos.y = fall_pos.y - 1
 			if creatura.get_node_def(fall_pos).walkable then
 				fall_safe = true
 				break
@@ -441,12 +438,15 @@ function mob:animate(animation, transition)
 	self._anim_transition = transition_data
 	if not self.animations[animation] then return end
 	if not self._anim
-	or self._anim ~= animation then
+	or self._anim ~= animation
+	or (transition
+	and not transition_data.child) then
 		local anim = self.animations[animation]
 		if anim[2] then anim = anim[random(#anim)] end
 		self.object:set_animation(anim.range, anim.speed, anim.frame_blend, anim.loop)
 		self._anim = animation
 		if transition then
+			minetest.chat_send_all("text")
 			local anim_length = (anim.range.y - anim.range.x) / anim.speed
 			self._anim_transition = {
 				parent = animation,
@@ -480,6 +480,26 @@ function mob:set_texture(id, tbl)
 		})
 	end
 	return _table[id]
+end
+
+-- Set/reset mesh
+
+function mob:set_mesh(id)
+	local mesh = self.mesh
+	if mesh then
+		self.object:set_properties({
+			mesh = mesh
+		})
+		return mesh
+	end
+	local meshes = self.meshes or {}
+	if #meshes > 0 then
+		local mesh_no = id or self.mesh_no or random(#meshes)
+		self.object:set_properties({
+			mesh = meshes[mesh_no]
+		})
+		return meshes[mesh_no]
+	end
 end
 
 -- Set scale to base scale times 'x' and update bordering positions
@@ -943,28 +963,30 @@ end
 local function collision_detection(self)
 	if not creatura.is_alive(self)
 	or self.fancy_collide == false then return end
-	local pos = self.object:get_pos()
+	local pos = self.stand_pos
 	local width = self.width + 0.25
 	local objects = minetest.get_objects_in_area(vec_sub(pos, width), vec_add(pos, width))
 	if #objects < 2 then return end
+	local pos2
+	local dir
+	local vel, vel2
 	for i = 2, #objects do
 		local object = objects[i]
 		if creatura.is_alive(object)
 		and not self.object:get_attach()
 		and not object:get_attach() then
 			if i > 5 then break end
-			local pos2 = object:get_pos()
-			local dir = vec_dir(pos, pos2)
+			pos2 = object:get_pos()
+			dir = vec_dir(pos, pos2)
 			dir.y = 0
 			if dir.x == 0 and dir.z == 0 then
 				dir = vector.new(random(-1, 1) * random(), 0,
 								 random(-1, 1) * random())
 			end
-			local velocity = vec_multi(dir, 1.1)
-			local vel1 = vec_multi(velocity, -2) -- multiplying by -2 accounts for friction
-			local vel2 = velocity
-			self.object:add_velocity(vel1)
-			object:add_velocity(vel2)
+			vel = vec_multi(dir, 1.5)
+			vel2 = vec_multi(dir, -2) -- multiplying by -2 accounts for friction
+			self.object:add_velocity(vel2)
+			object:add_velocity(vel)
 		end
 	end
 end
@@ -1098,12 +1120,17 @@ function mob:_execute_utilities()
 	if (self:timer(self.util_timer or 1)
 	or not self._utility_data.func)
 	and is_alive then
-		for i = 1, #self.utility_stack do
-			local utility = self.utility_stack[i].utility
-			local util_data = self._utility_data
-			local get_score = self.utility_stack[i].get_score
-			local step_delay = self.utility_stack[i].step_delay
-			local score, args = get_score(self)
+		local util_data = self._utility_data
+		local util_stack = self.utility_stack
+		local utility
+		local get_score
+		local step_delay
+		local score, args
+		for i = 1, #util_stack do
+			utility = util_stack[i].utility
+			get_score = util_stack[i].get_score
+			step_delay = util_stack[i].step_delay
+			score, args = get_score(self)
 			if util_data.utility
 			and utility == util_data.utility
 			and util_data.score > 0
