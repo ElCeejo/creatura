@@ -418,35 +418,41 @@ end
 -- Set mobs animation (if specified animation isn't already playing)
 
 function mob:animate(animation, transition)
-	if not animation then return end
+	if not animation
+	or not self.animations[animation] then
+		return
+	end
+
+	-- Handle Transition Data
 	local transition_data = self._anim_transition or {}
-	if transition_data.child then
-		local parent, child = transition_data.parent, transition_data.child
+	local parent_anim = transition_data.parent
+	local child_anim = transition_data.child
+	if child_anim
+	and animation == parent_anim
+	and transition == child_anim then
 		local timer = transition_data.timer
-		if animation == parent
-		and transition == child then
-			timer = (timer > 0 and timer - self.dtime) or 0
-			transition_data.timer = timer
-			if timer <= 0 then
-				animation = child
-				transition_data = {}
-			end
+		transition_data.timer = (timer > 0 and timer - self.dtime) or 0
+		if timer <= 0 then
+			animation = child_anim
 		end
 	else
 		transition_data = {}
 	end
 	self._anim_transition = transition_data
-	if not self.animations[animation] then return end
+
+	-- Set Animation
 	if not self._anim
 	or self._anim ~= animation
 	or (transition
-	and not transition_data.child) then
+	and not transition_data.timer) then
 		local anim = self.animations[animation]
 		if anim[2] then anim = anim[random(#anim)] end
 		self.object:set_animation(anim.range, anim.speed, anim.frame_blend, anim.loop)
 		self._anim = animation
-		if transition then
-			minetest.chat_send_all("text")
+		-- Set Transition Data
+		if transition
+		and (not transition_data.timer
+		or transition_data.timer > 0) then
 			local anim_length = (anim.range.y - anim.range.x) / anim.speed
 			self._anim_transition = {
 				parent = animation,
