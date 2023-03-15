@@ -492,7 +492,8 @@ end
 
 function mob:set_mesh(id)
 	local mesh = self.mesh
-	if mesh then
+	if mesh
+	and not self.meshes then
 		self.object:set_properties({
 			mesh = mesh
 		})
@@ -504,6 +505,13 @@ function mob:set_mesh(id)
 		self.object:set_properties({
 			mesh = meshes[mesh_no]
 		})
+		self:memorize("mesh_no", self.mesh_no)
+		if self.mesh_textures then
+			self.textures = self.mesh_textures[mesh_no]
+			self.texture_no = random(#self.textures)
+			self:set_texture(self.texture_no, self.textures)
+			self:memorize("texture_no", self.texture_no)
+		end
 		return meshes[mesh_no]
 	end
 end
@@ -1116,6 +1124,7 @@ function mob:_execute_utilities()
 			step_delay = nil,
 			score = 0
 		}
+		self._util_cooldown = {}
 	end
 	local loop_data = {
 		utility = nil,
@@ -1130,13 +1139,20 @@ function mob:_execute_utilities()
 		local util_stack = self.utility_stack
 		local utility
 		local get_score
+		local cooldown
 		local step_delay
 		local score, args
 		for i = 1, #util_stack do
 			utility = util_stack[i].utility
 			get_score = util_stack[i].get_score
+			cooldown = self._util_cooldown[i] or 0
 			step_delay = util_stack[i].step_delay
 			score, args = get_score(self)
+
+			if cooldown > 0 then
+				cooldown = cooldown - (self.util_timer or 1)
+			end
+
 			if util_data.utility
 			and utility == util_data.utility
 			and util_data.score > 0
@@ -1149,16 +1165,21 @@ function mob:_execute_utilities()
 				}
 				util_data = self._utility_data
 			end
+
 			if score > 0
 			and score >= util_data.score
-			and score >= loop_data.score then
+			and score >= loop_data.score
+			and cooldown <= 0 then
 				loop_data = {
 					utility = utility,
 					score = score,
+					util_no = i,
 					step_delay = step_delay,
 					args = args
 				}
 			end
+
+			self._util_cooldown[i] = cooldown
 		end
 	end
 	if loop_data.utility
@@ -1209,7 +1230,11 @@ function mob:_execute_utilities()
 		and self.vert_vel ~= 0 then
 			self:set_vertical_velocity(nil)
 		end
-		if func(self) then
+		local func_complete, func_cooldown = func(self)
+		if func_complete then
+			if util_data.util_no then
+				self._util_cooldown[util_data.util_no] = func_cooldown
+			end
 			self._utility_data = {
 				utility = nil,
 				func = nil,
@@ -1249,8 +1274,8 @@ function mob:_vitals()
 				else
 					local resist = self.fall_resistance or 0
 					damage = damage - damage * resist
-					fall_start = nil
 				end
+				fall_start = nil
 			end
 		end
 		self._fall_start = fall_start
