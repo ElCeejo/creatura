@@ -296,7 +296,7 @@ function creatura.find_lvm_path(self, start, goal, obj_width, obj_height, max_op
 					fail_safe = fail_safe + 1
 				end
 				repeat
-					if not closedSet[current_id] then return end
+					if not closedSet[current_id] then self._path_data = {} return end
 					table.insert(path, closedSet[current_id].pos)
 					current_id = closedSet[current_id].parent
 				until current_id == start_index or #path >= fail_safe
