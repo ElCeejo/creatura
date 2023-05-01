@@ -415,27 +415,17 @@ creatura.get_nearby_entities = creatura.get_nearby_objects
 
 function creatura.drop_items(self)
 	if not self.drops then return end
-	local pos = self.object:get_pos()
-	if not pos then return end
-
-	local drop_def, item_name, min_items, max_items, chance, amount, drop_pos
 	for i = 1, #self.drops do
-		drop_def = self.drops[i]
-		name = drop_def.name
+		local drop_def = self.drops[i]
+		local name = drop_def.name
 		if not name then return end
-		chance = drop_def.chance or 1
-
+		local min_amount = drop_def.min or 1
+		local max_amount = drop_def.max or 2
+		local chance = drop_def.chance or 1
+		local amount = random(min_amount, max_amount)
 		if random(chance) < 2 then
-			min_items = drop_def.min or 1
-			max_items = drop_def.max or 2
-			amount = random(min_amount, max_amount)
-			drop_pos = {
-				x = pos.x + random(-5, 5) * 0.1,
-				y = pos.y,
-				z = pos.z + random(-5, 5) * 0.1
-			}
-			
-			local item = minetest.add_item(drop_pos, ItemStack(name .. " " .. amount))
+			local pos = self.object:get_pos()
+			local item = minetest.add_item(pos, ItemStack(name .. " " .. amount))
 			if item then
 				item:add_velocity({
 					x = random(-2, 2),
