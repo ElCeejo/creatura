@@ -468,49 +468,41 @@ end
 	return path
 end]]
 
-creatura.register_movement_method("creatura:theta_pathfind", function(self)
+creatura.register_movement_method("creatura:pathfind_theta", function(self)
 	local path = {}
-	local box = clamp(self.width, 0.5, 1.5)
+	local steer_to
+	local steer_int = 0
+	local arrival_threshold = clamp(self.width, 0.5, 1)
+
+	self:set_gravity(-9.8)
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
-		if not pos then return end
-		pos.y = pos.y + 0.5
-		-- Return true when goal is reached
-		if vec_dist(pos, goal) < box * 1.33 then
+		if not pos or not goal then return end
+
+		if vec_dist(pos, goal) < arrival_threshold then
 			_self:halt()
 			return true
 		end
-		self:set_gravity(-9.8)
-		-- Get movement direction
-		local steer_to = get_avoidance_dir(_self, goal)
-		local goal_dir = vec_dir(pos, goal)
-		if steer_to then
-			goal_dir = steer_to
-			if #path < 1 then
-				path = creatura.find_theta_path(_self, pos, goal, _self.width, _self.height, 300) or {}
-			end
-		end
-		if #path > 0 then
-			goal_dir = vec_dir(pos, path[2] or path[1])
-			if vec_dist(pos, path[1]) < box then
-				table.remove(path, 1)
-			end
-		end
-		local yaw = _self.object:get_yaw()
-		local goal_yaw = dir2yaw(goal_dir)
-		local speed = abs(_self.speed or 2) * speed_factor or 0.5
+
+		-- Calculate Movement
 		local turn_rate = abs(_self.turn_rate or 5)
-		-- Movement
-		local yaw_diff = abs(diff(yaw, goal_yaw))
-		if yaw_diff < pi * 0.25
-		or steer_to then
-			_self:set_forward_velocity(speed)
-		else
-			_self:set_forward_velocity(speed * 0.33)
+		local speed = abs(_self.speed or 2) * speed_factor or 0.5
+		local path_dir = #path > 0 and vec_dir(pos, path[2] or path[1])
+
+		steer_int = (steer_int > 0 and steer_int - _self.dtime) or 1 / math.max(speed, 1)
+		steer_to = path_dir or (steer_int <= 0 and creatura.calc_steering(_self, goal)) or steer_to
+
+		path = (#path > 0 and path) or (creatura.pathfinder.find_path_theta(_self, pos, goal) or {})
+
+		if path_dir
+		and ((path[2] and vec_dist(pos, path[2]) < arrival_threshold)
+		or vec_dist(pos, path[1]) < arrival_threshold) then
+			table.remove(path, 1)
 		end
-		if yaw_diff > 0.1 then
-			_self:turn_to(goal_yaw, turn_rate)
-		end
+
+		-- Apply Movement
+		_self:turn_to(dir2yaw(steer_to or vec_dir(pos, goal)), turn_rate)
+		_self:set_forward_velocity(speed)
 	end
 	return func
 end)
@@ -519,31 +511,41 @@ creatura.register_movement_method("creatura:pathfind", function(self)
 	local path = {}
 	local steer_to
 	local steer_int = 0
+	local arrival_threshold = clamp(self.width, 0.5, 1)
+
 	self:set_gravity(-9.8)
 	local function func(_self, goal, speed_factor)
 		local pos = _self.object:get_pos()
 		if not pos or not goal then return end
-		if vec_dist(pos, goal) < clamp(self.width, 0.5, 1) then
+
+		if vec_dist(pos, goal) < arrival_threshold then
 			_self:halt()
 			return true
 		end
+
 		-- Calculate Movement
 		local turn_rate = abs(_self.turn_rate or 5)
 		local speed = abs(_self.speed or 2) * speed_factor or 0.5
-		steer_int = (not steer_to and steer_int > 0 and steer_int - _self.dtime) or 1 / math.max(speed, 1)
-		steer_to = (steer_int <= 0 and creatura.calc_steering(_self, goal)) or steer_to
-		if steer_to then
-			path = creatura.find_lvm_path(_self, pos, goal, _self.width, _self.height, 400) or {}
-			if #path > 0 then
-				steer_to = vec_dir(pos, path[2] or path[1])
-			end
+		local path_dir = #path > 0 and vec_dir(pos, path[2] or path[1])
+
+		steer_int = (steer_int > 0 and steer_int - _self.dtime) or 1 / math.max(speed, 1)
+		steer_to = path_dir or (steer_int <= 0 and creatura.calc_steering(_self, goal)) or steer_to
+
+		path = (#path > 0 and path) or (creatura.pathfinder.find_path(_self, pos, goal) or {})
+
+		if path_dir
+		and ((path[2] and vec_dist(pos, path[2]) < arrival_threshold + 0.5)
+		or vec_dist(pos, path[1]) < arrival_threshold) then
+			table.remove(path, 1)
 		end
+
 		-- Apply Movement
 		_self:turn_to(dir2yaw(steer_to or vec_dir(pos, goal)), turn_rate)
 		_self:set_forward_velocity(speed)
 	end
 	return func
 end)
+
 
 -- Steering
 

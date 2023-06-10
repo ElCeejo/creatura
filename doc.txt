@@ -214,3 +214,26 @@ Global Mob API
 	* Deals damage
 	* Applies knockback
 	* Visualy and audibly indicates damage
+
+Pathfinding
+-----------
+
+Creatura's pathfinder uses the A* algorithm for speed, as well as Theta* for decent performance and more natural looking paths.
+
+Both pathfinders will carry out pathfinding over multiple server steps to reduce lag spikes which does result in the path not
+being returned immediately, so your code will have to account for this.
+
+The maximum amount of time the pathfinder can spend per-step (in microseconds) can be adjusted in settings.
+	
+
+* `creatura.pathfinder.find_path(self, pos1, pos2, get_neighbors)`
+	* Finds a path from `pos1` to `pos2`
+	* `get_neighbors` is a function used to find valid neighbors
+		* `creatura.pathfinder.get_neighbors_fly` and `creatura.pathfinder.get_neighbors_swim` are bundled by default
+
+
+* `creatura.pathfinder.find_path_theta(self, pos1, pos2, get_neighbors)`
+	* Finds a path from `pos1` to `pos2`
+	* Returns a path with arbitrary angles for natural looking paths at the expense of performance
+	* `get_neighbors` is a function used to find valid neighbors
+		* `creatura.pathfinder.get_neighbors_fly` and `creatura.pathfinder.get_neighbors_swim` are bundled by default

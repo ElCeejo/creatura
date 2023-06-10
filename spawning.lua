@@ -87,6 +87,19 @@ function creatura.register_spawn_item(name, def)
 	def.description = def.description or "Spawn " .. format_name(name)
 	def.inventory_image = def.inventory_image or inventory_image
 	def.on_place = function(itemstack, player, pointed_thing)
+		-- If the player right-clicks something like a chest or item frame then
+		-- run the node's on_rightclick callback
+		local under = pointed_thing.under
+		local node = minetest.get_node(under)
+		local node_def = minetest.registered_nodes[node.name]
+		if node_def and node_def.on_rightclick and
+				not (player and player:is_player() and
+				player:get_player_control().sneak) then
+			return node_def.on_rightclick(under, node, player, itemstack,
+				pointed_thing) or itemstack
+		end
+
+		-- Otherwise spawn the mob
 		local pos = minetest.get_pointed_thing_position(pointed_thing, true)
 		if minetest.is_protected(pos, player and player:get_player_name() or "") then return end
 		local mobdef = minetest.registered_entities[name]
@@ -518,8 +531,11 @@ local function can_spawn(pos, width, height)
 	return true
 end
 
+local mobs_spawn = minetest.settings:get_bool("mobs_spawn") ~= false
+
 function creatura.register_abm_spawn(mob, def)
 	local chance = def.chance or 3000
+	local chance_on_load = def.chance_on_load or def.chance / 32
 	local interval = def.interval or 30
 	local min_height = def.min_height or 0
 	local max_height = def.max_height or 128
@@ -534,10 +550,15 @@ function creatura.register_abm_spawn(mob, def)
 	local nodes = def.nodes or {"group:soil", "group:stone"}
 	local neighbors = def.neighbors or {"air"}
 	local spawn_on_load = def.spawn_on_load or false
+	local spawn_active = def.spawn_active or true
 	local spawn_in_nodes = def.spawn_in_nodes or false
 	local spawn_cap = def.spawn_cap or 5
 
-	local function spawn_func(pos, _, _, aocw)
+	local function spawn_func(pos, aocw, is_lbm)
+
+		if not mobs_spawn then
+			return
+		end
 
 		if not spawn_in_nodes then
 			pos.y = pos.y + 1
@@ -549,8 +570,8 @@ function creatura.register_abm_spawn(mob, def)
 			return
 		end
 
-		if spawn_on_load  then -- Manual checks for LBMs
-			if random(chance) > 1 then return end
+		if is_lbm then -- Manual checks for LBMs
+			if random(chance_on_load or chance) > 1 then return end
 			if not minetest.find_node_near(pos, 1, neighbors) then return end
 			if pos.y > max_height or pos.y < min_height then return end
 		end
@@ -674,11 +695,12 @@ function creatura.register_abm_spawn(mob, def)
 			label = mob .. " spawning",
 			nodenames = nodes,
 			run_at_every_load = false,
-			action = function(pos, ...)
-				spawn_func(pos, ...)
+			action = function(pos, _, _, aocw)
+				spawn_func(pos, aocw, true)
 			end
 		})
-	else
+	end
+	if spawn_active then
 		minetest.register_abm({
 			label = mob .. " spawning",
 			nodenames = nodes,
@@ -688,8 +710,8 @@ function creatura.register_abm_spawn(mob, def)
 			min_y = min_height,
 			max_y = max_height,
 			catch_up = false,
-			action = function(pos, ...)
-				spawn_func(pos, ...)
+			action = function(pos, _, _, aocw)
+				spawn_func(pos, aocw, false)
 			end
 		})
 	end

@@ -87,8 +87,8 @@ local mob = {
 	},
 	follow = {},
 	fancy_collide = false,
-	bouyancy_multiplier = 1,
-	hydrodynamics_multiplier = 1
+	liquid_submergence = 0.25,
+	liquid_drag = 1
 
 }
 
@@ -505,12 +505,11 @@ function mob:set_mesh(id)
 		self.object:set_properties({
 			mesh = meshes[mesh_no]
 		})
-		self:memorize("mesh_no", self.mesh_no)
+		self.mesh_no = mesh_no
 		if self.mesh_textures then
 			self.textures = self.mesh_textures[mesh_no]
 			self.texture_no = random(#self.textures)
 			self:set_texture(self.texture_no, self.textures)
-			self:memorize("texture_no", self.texture_no)
 		end
 		return meshes[mesh_no]
 	end
@@ -818,20 +817,18 @@ function mob:activate(staticdata, dtime)
 	end
 
 	-- Initialize Stats and Visuals
+	if self.meshes
+	and #self.meshes > 0 then
+		if not self.mesh_no
+		or not self.meshes[self.mesh_no] then
+			self.mesh_no = random(#self.meshes)
+		end
+		self:set_mesh(self.mesh_no)
+	end
+
 	if not self.textures then
 		local textures = self:get_props().textures
 		if textures then self.textures = textures end
-	end
-
-	if self.meshes then
-		local mesh_no = self.mesh_no or random(#self.meshes)
-		if self.mesh_textures then
-			self.textures = self.mesh_textures[mesh_no]
-		end
-		self.mesh_no = mesh_no
-		self.object:set_properties({
-			mesh = self.meshes[mesh_no]
-		})
 	end
 
 	if not self.perm_data then
@@ -857,11 +854,14 @@ function mob:activate(staticdata, dtime)
 		return
 	end
 
-	self._breath =  self:recall("_breath") or (self.max_breath or 30)
+	self._breath = self:recall("_breath") or (self.max_breath or 30)
 	--self._border = index_box_border(self)
 
 	if self.textures
 	and self.texture_no then
+		if not self.textures[self.texture_no] then
+			self.texture_no = random(#self.textures)
+		end
 		self:set_texture(self.texture_no, self.textures)
 	end
 
@@ -960,11 +960,11 @@ function mob:on_step(dtime, moveresult)
 	end
 end
 
-function mob:on_deactivate()
+function mob:on_deactivate(removal)
 	self._task = {}
 	self._action = {}
 	if self.deactivate_func then
-		self:deactivate_func(self)
+		self:deactivate_func(removal)
 	end
 end
 
@@ -1005,65 +1005,14 @@ local function collision_detection(self)
 	end
 end
 
-local function water_physics(self, pos, node)
-	-- Props
-	local gravity = self._movement_data.gravity
-	local height = self.height
-	-- Vectors
-	pos.y = pos.y + 0.01
-	if minetest.get_item_group(node.name, "liquid") < 1 then
-		self.object:set_acceleration({
-			x = 0,
-			y = gravity,
-			z = 0
-		})
-		if self.in_liquid then
-			self.in_liquid = false
-		end
-		return
-	end
-	self.in_liquid = node.name
-	self.object:set_acceleration({
-		x = 0,
-		y = gravity * 0.5,
-		z = 0
-	})
-	local center = {
-		x = pos.x,
-		y = pos.y + height * 0.5,
-		z = pos.z
-	}
-	if minetest.get_item_group(minetest.get_node(center).name, "liquid") < 1 then
-		return
-	end
-	-- Calculate Physics
-	local vel = self.object:get_velocity()
-	local bouyancy_x = self.bouyancy_multiplier or 1
-	local bouyancy =  (abs(gravity * 0.5) / height) * bouyancy_x
-	if bouyancy > 0 then
-		if bouyancy > 4.9 then bouyancy = 4.9 end
-		self.object:set_acceleration({
-			x = 0,
-			y = 0,
-			z = 0
-		})
-		vel.y = vel.y + (bouyancy - vel.y) * (self.dtime * 0.5)
-	end
-	local hydrodynamics_x = self.hydrodynamics_multiplier or 0.7
-	vel.x = vel.x * hydrodynamics_x
-	vel.y = vel.y * ((bouyancy == 0 and hydrodynamics_x) or 1)
-	vel.z = vel.z * hydrodynamics_x
-	-- Apply Physics
-	self.object:set_velocity(vel)
-end
+local mob_friction = 7
 
 function mob:_physics()
-	local pos = self.stand_pos
-	local node = self.stand_node
-	if not pos or not node then return end
-	water_physics(self, pos, node)
-	-- Object collision
+	-- Physics
+	creatura.default_water_physics(self)
 	collision_detection(self)
+
+	-- Cache Environment Info
 	local in_liquid = self.in_liquid
 	local on_ground = self.touching_ground
 	if not in_liquid
@@ -1077,9 +1026,7 @@ function mob:_physics()
 	--and not move_data.func
 	and move_data.gravity ~= 0 then
 		local vel = self.object:get_velocity()
-		local friction = self.dtime * 10
-		if friction > 0.5 then friction = 0.5 end
-		if not on_ground then friction = 0.25 end
+		local friction = math.min(self.dtime * mob_friction, 0.5)
 		local nvel = {x = vel.x * (1 - friction), y = vel.y, z = vel.z * (1 - friction)}
 		self.object:set_velocity(nvel)
 	end
@@ -1124,6 +1071,8 @@ function mob:_execute_utilities()
 			step_delay = nil,
 			score = 0
 		}
+	end
+	if not self._util_cooldown then
 		self._util_cooldown = {}
 	end
 	local loop_data = {
@@ -1182,6 +1131,7 @@ function mob:_execute_utilities()
 			self._util_cooldown[i] = cooldown
 		end
 	end
+
 	if loop_data.utility
 	and loop_data.args then
 		if not self._utility_data
@@ -1197,7 +1147,8 @@ function mob:_execute_utilities()
 			end
 		end
 	end
-	if self._utility_data.utility then
+
+	if self._utility_data.utility then -- If a utility is currently selected
 		local util_data = self._utility_data
 		if not util_data.func then
 			self:initiate_utility(util_data.utility, unpack(util_data.args))
@@ -1255,78 +1206,6 @@ end
 
 -- Vitals
 
-function mob:_vitals()
-	local pos = self.stand_pos
-	local node = self.stand_node
-	if not pos or not node then return end
-	local max_fall = self.max_fall or 3
-	local in_liquid = self.in_liquid
-	local on_ground = self.touching_ground
-	local damage = 0
-	if max_fall > 0
-	and not in_liquid then
-		local fall_start = self._fall_start or (not on_ground and pos.y)
-		if fall_start then
-			if on_ground then
-				damage = fall_start - pos.y
-				if damage < max_fall then
-					damage = 0
-				else
-					local resist = self.fall_resistance or 0
-					damage = damage - damage * resist
-				end
-				fall_start = nil
-			end
-		end
-		self._fall_start = fall_start
-	end
-	if self:timer(1) then
-		local stand_def = creatura.get_node_def(node.name)
-		local max_breath = self.max_breath
-		if not max_breath
-		or max_breath > 0 then
-			local breath = self._breath or max_breath
-			local head_pos = vec_raise(pos, self.height - 0.01)
-			local head_def = creatura.get_node_def(head_pos)
-			if minetest.get_item_group(head_def.name, "liquid") > 0
-			or (head_def.walkable
-			and head_def.drawtype == "normal") then
-				if breath <= 0 then
-					damage = (damage or 0) + 1
-				else
-					breath = breath - 1
-				end
-			else
-				breath = (breath < max_breath and breath + 1) or max_breath
-			end
-			self._breath = self:memorize("_breath", breath)
-		end
-		if (not self.fire_resistance
-		or self.fire_resistance < 1)
-		and minetest.get_item_group(stand_def.name, "igniter") > 0
-		and stand_def.damage_per_second then
-			local resist = self.fire_resistance or 0.5
-			damage = (damage or 0) + stand_def.damage_per_second * resist
-		end
-	end
-	if damage > 0 then
-		self:hurt(damage)
-		self:indicate_damage()
-		if random(4) < 2 then
-			self:play_sound("hurt")
-		end
-	end
-	-- Entity Cramming
-	if self:timer(5) then
-		local objects = minetest.get_objects_inside_radius(pos, 0.2)
-		if #objects > 10 then
-			self:indicate_damage()
-			self.hp = self:memorize("hp", -1)
-			self:death_func()
-		end
-	end
-end
-
 function creatura.register_mob(name, def)
 	local box_width = def.hitbox and def.hitbox.width or 0.5
 	local box_height = def.hitbox and def.hitbox.height or 1
@@ -1353,6 +1232,8 @@ function creatura.register_mob(name, def)
 			variations = 3
 		}
 	end
+
+	def._vitals = def._vitals or creatura.default_vitals
 
 	def.on_activate = function(self, staticdata, dtime)
 		return self:activate(staticdata, dtime)

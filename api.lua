@@ -6,6 +6,7 @@ creatura.api = {}
 
 -- Math --
 
+local abs = math.abs
 local floor = math.floor
 local random = math.random
 
@@ -19,12 +20,6 @@ local function clamp(val, min_n, max_n)
 end
 
 local vec_dist = vector.distance
-local vec_equals = vector.equals
-local vec_add = vector.add
-
-local function vec_center(v)
-	return {x = floor(v.x + 0.5), y = floor(v.y + 0.5), z = floor(v.z + 0.5)}
-end
 
 local function vec_raise(v, n)
 	if not v then return end
@@ -190,7 +185,61 @@ function creatura.is_pos_moveable(pos, width, height)
 	return true
 end
 
-local moveable = creatura.is_pos_moveable
+local function is_blocked_thin(pos, height)
+	local node
+	local pos2 = {
+		x = floor(pos.x + 0.5),
+		y = floor(pos.y + 0.5) - 1,
+		z = floor(pos.z + 0.5)
+	}
+
+	for _ = 1, height do
+		pos2.y = pos2.y + 1
+		node = minetest.get_node_or_nil(pos2)
+
+		if not node
+		or get_node_def(node.name).walkable then
+			return true
+		end
+	end
+	return false
+end
+
+function creatura.is_blocked(pos, width, height)
+	if width <= 0.5 then
+		return is_blocked_thin(pos, height)
+	end
+
+	local p1 = {
+		x = pos.x - (width + 0.2),
+		y = pos.y,
+		z = pos.z - (width + 0.2),
+	}
+	local p2 = {
+		x = pos.x + (width + 0.2),
+		y = pos.y + (height + 0.2),
+		z = pos.z + (width + 0.2),
+	}
+
+	local node
+	local pos2 = {}
+	for z = p1.z, p2.z do
+		pos2.z = z
+		for y = p1.y, p2.y do
+			pos2.y = y
+			for x = p1.x, p2.x do
+				pos2.x = x
+				node = minetest.get_node_or_nil(pos2)
+
+				if not node
+				or get_node_def(node.name).walkable then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
 
 function creatura.fast_ray_sight(pos1, pos2, water)
 	local ray = minetest.raycast(pos1, pos2, false, water or false)
@@ -206,127 +255,6 @@ function creatura.fast_ray_sight(pos1, pos2, water)
 end
 
 local fast_ray_sight = creatura.fast_ray_sight
-
-function creatura.get_next_move(self, pos2)
-	local last_move = self._movement_data.last_move
-	local width = self.width
-	local height = self.height
-	local pos = self.object:get_pos()
-	pos = {
-		x = floor(pos.x),
-		y = pos.y + 0.01,
-		z = floor(pos.z)
-	}
-	pos.y = pos.y + 0.01
-	if last_move
-	and last_move.pos then
-		local last_call = minetest.get_position_from_hash(last_move.pos)
-		last_move = minetest.get_position_from_hash(last_move.move)
-		if vec_equals(vec_center(last_call), vec_center(pos)) then
-			return last_move
-		end
-	end
-	local neighbors = {
-		vec_add(pos, {x = 1, y = 0, z = 0}),
-		vec_add(pos, {x = 1, y = 0, z = 1}),
-		vec_add(pos, {x = 0, y = 0, z = 1}),
-		vec_add(pos, {x = -1, y = 0, z = 1}),
-		vec_add(pos, {x = -1, y = 0, z = 0}),
-		vec_add(pos, {x = -1, y = 0, z = -1}),
-		vec_add(pos, {x = 0, y = 0, z = -1}),
-		vec_add(pos, {x = 1, y = 0, z = -1})
-	}
-	local _next
-	table.sort(neighbors, function(a, b)
-		return vec_dist(a, pos2) < vec_dist(b, pos2)
-	end)
-	for i = 1, #neighbors do
-		local neighbor = neighbors[i]
-		local can_move = fast_ray_sight(pos, neighbor)
-		if vec_equals(neighbor, pos2) then
-			can_move = true
-		end
-		if can_move
-		and not moveable(neighbor, width, height) then
-			can_move = false
-			if moveable(vec_raise(neighbor, 0.5), width, height) then
-				can_move = true
-			end
-		end
-		if can_move
-		and not self:is_pos_safe(neighbor) then
-			can_move = false
-		end
-		if can_move then
-			_next = vec_raise(neighbor, 0.1)
-			break
-		end
-	end
-	if _next then
-		self._movement_data.last_move = {
-			pos = minetest.hash_node_position(pos),
-			move = minetest.hash_node_position(_next)
-		}
-		_next = {
-			x = floor(_next.x),
-			y = _next.y,
-			z = floor(_next.z)
-		}
-	end
-	return _next
-end
-
-function creatura.get_next_move_3d(self, pos2)
-	local last_move = self._movement_data.last_move
-	local width = self.width
-	local height = self.height
-	local scan_width = width * 2
-	local pos = self.object:get_pos()
-	pos.y = pos.y + 0.5
-	if last_move
-	and last_move.pos then
-		local last_call = minetest.get_position_from_hash(last_move.pos)
-		last_move = minetest.get_position_from_hash(last_move.move)
-		if vec_equals(vec_center(last_call), vec_center(pos)) then
-			return last_move
-		end
-	end
-	local neighbors = {
-		vec_add(pos, {x = scan_width, y = 0, z = 0}),
-		vec_add(pos, {x = scan_width, y = 0, z = scan_width}),
-		vec_add(pos, {x = 0, y = 0, z = scan_width}),
-		vec_add(pos, {x = -scan_width, y = 0, z = scan_width}),
-		vec_add(pos, {x = -scan_width, y = 0, z = 0}),
-		vec_add(pos, {x = -scan_width, y = 0, z = -scan_width}),
-		vec_add(pos, {x = 0, y = 0, z = -scan_width}),
-		vec_add(pos, {x = scan_width, y = 0, z = -scan_width})
-	}
-	local next
-	table.sort(neighbors, function(a, b)
-		return vec_dist(a, pos2) < vec_dist(b, pos2)
-	end)
-	for i = 1, #neighbors do
-		local neighbor = neighbors[i]
-		local can_move = fast_ray_sight({x = pos.x, y = neighbor.y, z = pos.z}, neighbor)
-		if not moveable(vec_raise(neighbor, 0.6), width, height) then
-			can_move = false
-		end
-		if vec_equals(neighbor, pos2) then
-			can_move = true
-		end
-		if can_move then
-			next = neighbor
-			break
-		end
-	end
-	if next then
-		self._movement_data.last_move = {
-			pos = minetest.hash_node_position(pos),
-			move = minetest.hash_node_position(next)
-		}
-	end
-	return vec_raise(next, clamp((pos2.y - pos.y) + -0.6, -1, 1))
-end
 
 function creatura.sensor_floor(self, range, water)
 	local pos = self.object:get_pos()
@@ -412,6 +340,139 @@ creatura.get_nearby_entities = creatura.get_nearby_objects
 --------------------
 -- Global Mob API --
 --------------------
+
+function creatura.default_water_physics(self)
+	local pos = self.stand_pos
+	local stand_node = self.stand_node
+	if not pos or not stand_node then return end
+	local gravity = self._movement_data.gravity or -9.8
+	local submergence = self.liquid_submergence or 0.25
+	local drag = self.liquid_drag or 0.7
+
+	if minetest.get_item_group(stand_node.name, "liquid") > 0 then -- In Liquid
+		local vel = self.object:get_velocity()
+		if not vel then return end
+
+		self.in_liquid = stand_node.name
+
+		if submergence < 1 then
+			local mob_level = pos.y + (self.height * submergence)
+
+			-- Find Water Surface
+			local nodes = minetest.find_nodes_in_area_under_air(
+				{x = pos.x, y = pos.y, z = pos.z},
+				{x = pos.x, y = pos.y + 3, z = pos.z},
+				"group:liquid"
+			) or {}
+
+			local surface_level = (#nodes > 0 and nodes[#nodes].y or pos.y + self.height + 3)
+			surface_level = floor(surface_level + 0.9)
+
+			local height_diff = mob_level - surface_level
+
+			-- Apply Bouyancy
+			if height_diff <= 0 then
+				local displacement = clamp(abs(height_diff) / submergence, 0.5, 1) * self.width
+
+				self.object:set_acceleration({x = 0, y = displacement, z = 0})
+			else
+				self.object:set_acceleration({x = 0, y = gravity, z = 0})
+			end
+		end
+
+		-- Apply Drag
+		self.object:set_velocity({
+			x = vel.x * (1 - self.dtime * drag),
+			y = vel.y * (1 - self.dtime * drag),
+			z = vel.z * (1 - self.dtime * drag)
+		})
+	else
+		self.in_liquid = nil
+
+		self.object:set_acceleration({x = 0, y = gravity, z = 0})
+	end
+end
+
+function creatura.default_vitals(self)
+	local pos = self.stand_pos
+	local node = self.stand_node
+	if not pos or node then return end
+
+	local max_fall = self.max_fall or 3
+	local in_liquid = self.in_liquid
+	local on_ground = self.touching_ground
+	local damage = 0
+
+	-- Fall Damage
+	if max_fall > 0
+	and not in_liquid then
+		local fall_start = self._fall_start or (not on_ground and pos.y)
+		if fall_start
+		and on_ground then
+			damage = floor(fall_start - pos.y)
+			if damage < max_fall then
+				damage = 0
+			else
+				local resist = self.fall_resistance or 0
+				damage = damage - damage * resist
+			end
+			fall_start = nil
+		end
+		self._fall_start = fall_start
+	end
+
+	-- Environment Damage
+	if self:timer(1) then
+		local stand_def = creatura.get_node_def(node.name)
+		local max_breath = self.max_breath or 0
+
+		-- Suffocation
+		if max_breath > 0 then
+			local head_pos = {x = pos.x, y = pos.y + self.height, z = pos.z}
+			local head_def = creatura.get_node_def(head_pos)
+			if head_def.groups
+			and (minetest.get_item_group(head_def.name, "water") > 0
+			or (head_def.walkable
+			and head_def.groups.disable_suffocation ~= 1
+			and head_def.drawtype == "normal")) then
+				local breath = self._breath
+				if breath <= 0 then
+					damage = damage + 1
+				else
+					self._breath = breath - 1
+					self:memorize("_breath", breath)
+				end
+			end
+		end
+
+		-- Burning
+		local fire_resist = self.fire_resistance or 0
+		if fire_resist < 1
+		and minetest.get_item_group(stand_def.name, "igniter") > 0
+		and stand_def.damage_per_second then
+			damage = (damage or 0) + stand_def.damage_per_second * fire_resist
+		end
+	end
+
+	-- Apply Damage
+	if damage > 0 then
+		self:hurt(damage)
+		self:indicate_damage()
+		if random(4) < 2 then
+			self:play_sound("hurt")
+		end
+	end
+
+	-- Entity Cramming
+	if self:timer(5) then
+		local objects = minetest.get_objects_inside_radius(pos, 0.2)
+		if #objects > 10 then
+			self:indicate_damage()
+			self.hp = self:memorize("hp", -1)
+			self:death_func()
+		end
+	end
+end
 
 function creatura.drop_items(self)
 	if not self.drops then return end
