@@ -207,6 +207,13 @@ Environment access
 Global Mob API
 --------------
 
+* `creatura.default_water_physics(self)`
+	* Bouyancy and Drag physics used by default on all Mobs
+
+* `creatura.default_vitals(self)`
+	* Vitals used by default on all Mobs
+	* Handles suffocation, drowning, fire damage, and fall damage
+
 * `creatura.drop_items(self)`
 	* Drops items from `self.drops`
 
@@ -237,3 +244,39 @@ The maximum amount of time the pathfinder can spend per-step (in microseconds) c
 	* Returns a path with arbitrary angles for natural looking paths at the expense of performance
 	* `get_neighbors` is a function used to find valid neighbors
 		* `creatura.pathfinder.get_neighbors_fly` and `creatura.pathfinder.get_neighbors_swim` are bundled by default
+
+Spawning
+--------
+
+NOTE: Globalstep spawning from early versions of the API likely won't recieve much/any support going forward. Use ABM Spawning instead.
+
+* `creatura.register_abm_spawn(name, def)`
+	* `name` of the mob to spawn
+	* `def` is a table of spawn parameters
+			* `chance` is the chance of a mob spawning every `interval`
+				* (a `chance` of 30 and `interval` of 60 would mean a 1 in 30 chance of a mob spawning every 60 seconds)
+			* `chance_on_load` same as `chance` but for LBM spawning (when a chunk is loaded for the first time)
+			* `interval` is how often (in seconds) a spawn attempt will happen
+			* `min_height` is the minimum height that a spawn attempt can happen at
+				* a `min_height` of 0 would mean the mob cannot spawn below a y coordinate of 0
+			* `max_height` is the maximum height that a spawn attempt can happen at
+				* a `max_height` of 128 would mean the mob cannot spawn above a y coordinate of 128
+			* `min_time` is the minimum time a mob can spawn at
+			* `max_time` is the maximum time a mob can spawn at
+				* set `min_time` to 19500 and `max_time` to 4500 to only spawn at night and swap the numbers to only spawn at day
+			* `min_light` is the minimum light level a mob can spawn at
+			* `max_light` is the maximum light level a mob can spawn at
+			* `min_group` is the lowest number of mobs to spawn in a group at a time
+				* value of 3 means the mob will always spawn with at least 3 mobs together
+			* `max_group` is the highest number of mobs to spawn in a group at a time
+			* `block_protected` will block spawning mobs in protected areas if set to true
+			* `biomes` is a table of biomes the mob can spawn in
+			* `nodes` is a table of nodes the mob can spawn in/on
+			* `neighbors` is a table of nodes that must be adjacent to the spawn position
+				* ex: set to `{"groups:tree"}` to force the mob to spawn next to a tree
+			* `spawn_on_load` will spawn mobs when a chunk generates if set to true
+			* `spawn_active` will spawn mobs at the rate set by `interval` if set to true
+				* this option is true by default. setting it to false without setting `spawn_on_load` to true will disable spawning the mob.
+			* `spawn_in_nodes` will spawn mobs inside the node rather than above if set to true
+				* set this to true for mobs that spawn in water
+			* `spawn_cap` is the maximum amount of the mob that can spawn within active block range

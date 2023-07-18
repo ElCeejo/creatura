@@ -133,7 +133,7 @@ local neighbor_grid_3d = {
 
 -- Get Neighbors
 
-local function get_neighbors(pos, width, height, open, closed, parent)
+local function get_neighbors(pos, width, height, open, closed, parent, evaluated)
 	local result = {}
 	local neighbor
 	local can_move
@@ -151,7 +151,8 @@ local function get_neighbors(pos, width, height, open, closed, parent)
 		end
 
 		if open[hashed_pos]
-		or closed[hashed_pos] then
+		or closed[hashed_pos]
+		or evaluated[hashed_pos] then
 			can_move = false
 		elseif can_move then
 			can_move = not is_blocked(neighbor, width, height)
@@ -172,6 +173,8 @@ local function get_neighbors(pos, width, height, open, closed, parent)
 		if can_move then
 			table.insert(result, neighbor)
 		end
+
+		evaluated[hashed_pos] = true
 	end
 	return result
 end
@@ -303,6 +306,7 @@ function creatura.pathfinder.find_path(self, pos1, pos2, neighbor_func)
 
 	local openSet = self._path_data.open or {}
 	local closedSet = self._path_data.closed or {}
+	local evaluated = {}
 
 	local start_index = minetest.hash_node_position(start)
 
@@ -382,7 +386,8 @@ function creatura.pathfinder.find_path(self, pos1, pos2, neighbor_func)
 			self.height,
 			openSet,
 			closedSet,
-			(parent_closed and parent_closed.pos) or (parent_open and parent_open.pos)
+			(parent_closed and parent_closed.pos) or (parent_open and parent_open.pos),
+			evaluated
 		)
 		-- Fly, Swim, and Climb all return true for check_vertical to properly check if goal has been reached
 
@@ -463,6 +468,7 @@ function creatura.pathfinder.find_path_theta(self, pos1, pos2, neighbor_func)
 
 	local openSet = self._path_data.open or {}
 	local closedSet = self._path_data.closed or {}
+	local evaluated = {}
 
 	local start_index = minetest.hash_node_position(start)
 
@@ -543,7 +549,8 @@ function creatura.pathfinder.find_path_theta(self, pos1, pos2, neighbor_func)
 			self.height,
 			openSet,
 			closedSet,
-			(parent_closed and parent_closed.pos) or (parent_open and parent_open.pos)
+			(parent_closed and parent_closed.pos) or (parent_open and parent_open.pos),
+			evaluated
 		)
 		-- Fly, Swim, and Climb all return true for check_vertical to properly check if goal has been reached
 

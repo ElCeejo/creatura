@@ -516,7 +516,7 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 	if puncher:is_player() then
 		tool = puncher:get_wielded_item()
 		tool_name = tool:get_name()
-		add_wear = not minetest.is_creative_enabled(puncher)
+		add_wear = not minetest.is_creative_enabled(puncher:get_player_name())
 	end
 	if (self.immune_to
 	and contains_val(self.immune_to, tool_name)) then

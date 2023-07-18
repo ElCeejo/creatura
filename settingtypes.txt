@@ -7,14 +7,11 @@ creatura_step_type (Step Type) enum simple simple,fancy
 # How often (in seconds) the spawn ABM is called
 creatura_spawn_interval (Spawn ABM Interval) int 10
 
-# Time (in seconds) between spawn steps
-creatura_spawn_step (Spawn Step Interval) int 15
-
 # Allows Mobs to spawn during chunk generation (If dependent mods use spawn_on_gen)
 creatura_mapgen_spawning (Mapgen Spawning) bool true
 
 # How many chunks are generated before a Mob can spawn
-creatura_mapgen_spawn_interval (Mapgen Spawning Interval) int 5
+creatura_mapgen_spawn_interval (Mapgen Spawning Interval) int 64
 
 # How many Mobs can be a in a Mapblock before ABM spawning is blocked
 creatura_mapblock_limit (Max Mobs per Mapblock) int 12
