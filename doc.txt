@@ -275,8 +275,6 @@ NOTE: Globalstep spawning from early versions of the API likely won't recieve mu
 			* `neighbors` is a table of nodes that must be adjacent to the spawn position
 				* ex: set to `{"groups:tree"}` to force the mob to spawn next to a tree
 			* `spawn_on_load` will spawn mobs when a chunk generates if set to true
-			* `spawn_active` will spawn mobs at the rate set by `interval` if set to true
-				* this option is true by default. setting it to false without setting `spawn_on_load` to true will disable spawning the mob.
 			* `spawn_in_nodes` will spawn mobs inside the node rather than above if set to true
 				* set this to true for mobs that spawn in water
 			* `spawn_cap` is the maximum amount of the mob that can spawn within active block range
