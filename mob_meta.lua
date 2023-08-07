@@ -744,6 +744,7 @@ function mob:initiate_utility(utility, ...)
 end
 
 function mob:set_utility_score(n)
+	if not self._utility_data then return end
 	self._utility_data.score = n or 0
 end
 
