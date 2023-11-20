@@ -4,10 +4,7 @@
 
 -- Visual Harm 1ndicator check
 
-local use_vh1
-minetest.register_on_mods_loaded(function()
-      use_vh1 = minetest.get_modpath("visual_harm_1ndicators")
-end)
+local use_vh1 = minetest.get_modpath("visual_harm_1ndicators")
 
 -- Math --
 
