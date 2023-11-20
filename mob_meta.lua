@@ -2,6 +2,13 @@
 -- Mob Meta --
 --------------
 
+-- Visual Harm 1ndicator check
+
+local use_vh1
+minetest.register_on_mods_loaded(function()
+      use_vh1 = minetest.get_modpath("visual_harm_1ndicators")
+end)
+
 -- Math --
 
 local pi = math.pi
@@ -239,6 +246,9 @@ function mob:hurt(health)
 	if self.protected then return end
 	self.hp = self.hp - math.ceil(health)
 	if self.hp < 0 then self.hp = 0 end
+	if use_vh1 then
+	   VH1.update_bar(self.object, self.hp, self.max_health)
+	end
 end
 
 -- Add HP to mob
@@ -248,6 +258,9 @@ function mob:heal(health)
 	self.hp = self.hp + math.ceil(health)
 	if self.hp > self.max_health then
 		self.hp = self.max_health
+	end
+	if use_vh1 then
+	   VH1.update_bar(self.object, self.hp, self.max_health)
 	end
 end
 
