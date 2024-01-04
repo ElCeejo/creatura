@@ -346,6 +346,11 @@ function creatura.register_abm_spawn(mob, def)
 	}
 end
 
+----------------
+-- DEPRECATED --
+----------------
+
+
 -- Mapgen --
 
 minetest.register_node("creatura:spawn_node", {
@@ -354,7 +359,7 @@ minetest.register_node("creatura:spawn_node", {
 	walkable = false
 })
 
-local mapgen_spawning = minetest.settings:get_bool("creatura_mapgen_spawning", true)
+local mapgen_spawning = false
 local mapgen_spawning_int = tonumber(minetest.settings:get("creatura_mapgen_spawn_interval")) or 64
 
 if mapgen_spawning then
@@ -512,10 +517,6 @@ if mapgen_spawning then
 		end,
 	})
 end
-
-----------------
--- DEPRECATED --
-----------------
 
 function creatura.register_mob_spawn(name, def)
 	local spawn_def = {
