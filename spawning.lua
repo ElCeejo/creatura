@@ -2,6 +2,9 @@
 -- Spawning --
 --------------
 
+-- Load support for MT game translation.
+local S = minetest.get_translator("creatura")
+
 creatura.registered_mob_spawns = {}
 creatura.registered_on_spawns = {}
 
@@ -87,7 +90,8 @@ function creatura.register_spawn_item(name, def)
 	end
 	local mod_name = name:split(":")[1]
 	local mob_name = name:split(":")[2]
-	def.description = def.description or "Spawn " .. format_name(name)
+	local mod_S = minetest.get_translator(mod_name)
+	def.description = def.description or S("Spawn @1", mod_S(format_name(name)))
 	def.inventory_image = def.inventory_image or inventory_image
 	def.on_place = function(itemstack, player, pointed_thing)
 		-- If the player right-clicks something like a chest or item frame then
@@ -550,8 +554,9 @@ function creatura.register_spawn_egg(name, col1, col2, inventory_image)
 	end
 	local mod_name = name:split(":")[1]
 	local mob_name = name:split(":")[2]
+	local mod_S = minetest.get_translator(mod_name)
 	minetest.register_craftitem(mod_name .. ":spawn_" .. mob_name, {
-		description = "Spawn " .. format_name(name),
+		description = S("Spawn @1", mod_S(format_name(name))),
 		inventory_image = inventory_image,
 		stack_max = 99,
 		on_place = function(itemstack, _, pointed_thing)
