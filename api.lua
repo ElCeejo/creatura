@@ -396,7 +396,7 @@ end
 function creatura.default_vitals(self)
 	local pos = self.stand_pos
 	local node = self.stand_node
-	if not pos or node then return end
+	if not pos or not node then return end
 
 	local max_fall = self.max_fall or 3
 	local in_liquid = self.in_liquid
