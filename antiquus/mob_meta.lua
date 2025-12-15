@@ -2,8 +2,8 @@
 -- Mob Meta --
 --------------
 
-local gestus = dofile(creatura.path_subclass .. "/gestus.lua") -- Animation Control
-local sensus = dofile(creatura.path_subclass .. "/sensus.lua") -- Target Selection
+local animation_controller = dofile(creatura.path_subclass .. "/animation_controller.lua") -- Animation Control
+local target_selector = dofile(creatura.path_subclass .. "/target_selector.lua") -- Target Selection
 
 -- Math --
 
@@ -421,14 +421,14 @@ end
 -- Set mobs animation (if specified animation isn't already playing)
 
 function mob:animate(animation, transition)
-	if animation == self.gestus:get_animation() then return end
+	if animation == self.animation_controller:get_animation() then return end
 
-	local gestus = self.gestus
-	gestus:set_animation(animation)
+	local animation_controller = self.animation_controller
+	animation_controller:set_animation(animation)
 	if transition then
-		gestus:on_end(function(gestus)
-			gestus:set_animation(transition)
-		end, gestus)
+		animation_controller:on_end(function(animation_controller)
+			animation_controller:set_animation(transition)
+		end, animation_controller)
 	end
 
 	return animation
@@ -830,8 +830,8 @@ function mob:activate(staticdata, dtime)
 		end
 	end
 
-	self.gestus = gestus:new(self.object)
-	self.sensus = sensus:new(self.object)
+	self.animation_controller = animation_controller:new(self.object)
+	self.target_selector = target_selector:new(self.object)
 
 	if self.activate_func then
 		self:activate_func(self, staticdata, dtime)
@@ -883,6 +883,7 @@ function mob:on_step(dtime, moveresult)
 	and self._execute_utilities then
 		self:_execute_utilities()
 	end
+	self.animation_controller:update()
 	-- Die
 	if self.hp <= 0
 	and self.death_func then

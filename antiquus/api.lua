@@ -87,7 +87,7 @@ function creatura.get_nearby_player(self)
 end
 
 function creatura.get_nearby_players(self)
-	return self.target_selector:get_players()
+	return self.target_selector:get_players() or {}
 end
 
 function creatura.get_nearby_object(self, name)
@@ -117,7 +117,7 @@ function creatura.get_nearby_objects(self, name)
 		end
 	end
 
-	return self.target_selector:get_mobs(filter)
+	return self.target_selector:get_mobs(filter) or {}
 end
 
 creatura.get_nearby_entity = creatura.get_nearby_object
@@ -292,6 +292,45 @@ function creatura.drop_items(self)
 	end
 end
 
-local path = minetest.get_modpath("creatura")
-
-dofile(path.."/mob_meta.lua")
+function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
+	if not puncher then return end
+	local tool
+	local tool_name = ""
+	local add_wear = false
+	if puncher:is_player() then
+		tool = puncher:get_wielded_item()
+		tool_name = tool:get_name()
+		add_wear = not minetest.is_creative_enabled(puncher:get_player_name())
+	end
+	if (self.immune_to
+	and contains_val(self.immune_to, tool_name)) then
+		return
+	end
+	local damage = 0
+	local armor_grps = self.object:get_armor_groups() or self.armor_groups or {}
+	for group, val in pairs(tool_caps.damage_groups or {}) do
+		local dmg_x = tflp / (tool_caps.full_punch_interval or 1.4)
+		damage = damage + val * clamp(dmg_x, 0, 1) * ((armor_grps[group] or 0) / 100.0)
+	end
+	if damage > 0 then
+		local dist = vec_dist(self.object:get_pos(), puncher:get_pos())
+		dir.y = 0.2
+		if self.touching_ground then
+			local power = clamp((damage / dist) * 8, 0, 8)
+			self:apply_knockback(dir, power)
+		end
+		self:hurt(damage)
+	end
+	if add_wear then
+		local wear = floor((tool_caps.full_punch_interval / 75) * 9000)
+		tool:add_wear(wear)
+		puncher:set_wielded_item(tool)
+	end
+	if random(2) < 2 then
+		self:play_sound("hurt")
+	end
+	if (tflp or 0) > 0.5 then
+		self:play_sound("hit")
+	end
+	self:indicate_damage()
+end
