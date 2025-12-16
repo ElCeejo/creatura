@@ -1,6 +1,6 @@
 ﻿# Short-term To-do (Before full release)
 
- - [ ] New Boid API
+ - [x] New Boid API
  - [ ] New hit sounds
  - [ ] Finish Pathfinder
  - [ ] Finish Swimming/Flying functionality

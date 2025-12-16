@@ -5,12 +5,12 @@
 -- Subclasses
 
 local path_subclass = creatura.path_subclass
-local animation_controller = dofile(path_subclass .. "/animation_controller.lua")
-local physics_controller = dofile(path_subclass .. "/physics_controller.lua")
-local movement_controller = dofile(path_subclass .. "/movement_controller.lua")
-local target_selector = dofile(path_subclass .. "/target_selector.lua")
-local navigator = dofile(path_subclass .. "/navigator.lua")
-local utility_stack = dofile(path_subclass .. "/utility_stack.lua")
+local animation_controller = dofile(path_subclass .. "/animation_controller.lua") -- Gestus
+local physics_controller = dofile(path_subclass .. "/physics_controller.lua") -- Corpus
+local movement_controller = dofile(path_subclass .. "/movement_controller.lua") -- Motus
+local target_selector = dofile(path_subclass .. "/target_selector.lua") -- Sensus
+local navigator = dofile(path_subclass .. "/navigator.lua") -- Iter
+local utility_stack = dofile(path_subclass .. "/utility_stack.lua") -- Animus
 
 creatura.navigator = navigator
 creatura.a_star_pathfinder = dofile(path_subclass .. "/pathfinder.lua")
@@ -46,7 +46,7 @@ local mob_class = {
 	is_visible = true,
 	makes_footstep_sound = true,
 	stepheight = 1.1,
-	backface_culling = true,
+	backface_culling = false,
 	glow = 0,
 	static_save = true,
 	damage_texture_modifier = "^[colorize:#FF0000",

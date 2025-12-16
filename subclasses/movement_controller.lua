@@ -1,6 +1,8 @@
 local movement_controller = {}
 movement_controller.__index = movement_controller
 
+local boid_handler = dofile(creatura.path_subclass .. "/boid_handler.lua")
+
 -- Create new instance
 function movement_controller:new(parent, spec)
 	local parent_entity = parent and parent:get_luaentity()
@@ -52,6 +54,11 @@ end
 -- Return parent objects luaentity
 function movement_controller:parent_entity()
 	return self.parent and self.parent:get_luaentity()
+end
+
+function movement_controller:initiate_boids()
+	self.is_boid = true
+	self.boid_handler = boid_handler:new(self.parent)
 end
 
 -- Directly set velocity in current look dir
@@ -149,6 +156,10 @@ function movement_controller:flying_move(obj, tgt_pos, sp)
 	local yaw_diff = radians_difference_abs(yaw, target_yaw)
 	local speed_mod = math.max(0.2, math.cos(yaw_diff))
 
+	if self.is_boid then
+		target_dir = vector.add(target_dir, self.boid_handler:get_direction())
+	end
+
 	local desired_vel = {
 		x = target_dir.x * speed * speed_mod,
 		y = target_dir.y * speed * 0.7,
@@ -183,11 +194,19 @@ function movement_controller:swimming_move(obj, tgt_pos, sp)
 	local target_yaw = get_yaw_to_pos(pos, target_pos)
 
 	local yaw_diff = radians_difference_abs(yaw, target_yaw)
-	local speed_mod = math.max(0.2, math.cos(yaw_diff))
+	local speed_mod = math.max(0.6, math.cos(yaw_diff))
 
-	vel.x = target_dir.x * speed * speed_mod
-	vel.y = target_dir.y * speed
-	vel.z = target_dir.z * speed * speed_mod
+	if self.is_boid then
+		local boid_dir = self.boid_handler:get_direction()
+		if vector.length(boid_dir) ~= 0 then
+			target_dir = vector.divide(vector.add(target_dir, boid_dir), 2)
+			target_yaw = minetest.dir_to_yaw(target_dir)
+		end
+	end
+
+	vel.z = math.cos(yaw) * speed * speed_mod
+	vel.y = target_dir.y * speed * speed_mod
+	vel.x = -math.sin(yaw) * speed * speed_mod
 
 	if entity.physics_controller then
 		if entity.in_liquid then
