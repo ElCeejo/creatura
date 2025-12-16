@@ -27,10 +27,10 @@ local min = math.min
 local pi = math.pi
 
 local gravity = -9.8
-local friction = 4
+local friction = 0.8
 
 local function radians_difference_abs(a, b)
-	return math.abs(math.atan2(math.sin(b - a), math.cos(b - a)))
+	return abs(math.atan2(math.sin(b - a), math.cos(b - a)))
 end
 
 local function interpolate_radians(a, b, w)
@@ -41,17 +41,6 @@ end
 
 local function lerp(a, b, t)
 	return a + (b - a) * t
-end
-
-local function get_distance(pos1, pos2)
-	local x = pos2.x - pos1.x
-	local y = pos2.y - pos1.y
-	local z = pos2.z - pos1.z
-
-	local horizontal_dist = x * x + z * z
-	local dist = horizontal_dist + y * y
-
-	return horizontal_dist, dist
 end
 
 local function get_yaw_to_pos(pos1, pos2)
@@ -72,7 +61,7 @@ function movement_controller:set_forward_velocity(speed)
 
 	vel.x = -math.sin(yaw) * speed
 	vel.z = math.cos(yaw) * speed
-	
+
 	self.parent:set_velocity(vel)
 end
 
@@ -97,12 +86,12 @@ function movement_controller:stop()
 end
 
 -- Jump at specified angles and power
-function movement_controller:jump(_yaw, pitch, power)
+function movement_controller:jump(_yaw, _pitch, power)
 	if self.state == "jump" then return end
 	local yaw = _yaw or self.parent:get_yaw()
 	local vel = self.parent:get_velocity()
 
-	local pitch = math.rad(pitch)
+	local pitch = math.rad(_pitch)
 	local upward_power = math.sin(pitch) * power
 	local forward_power = math.cos(pitch) * power
 
@@ -170,7 +159,6 @@ function movement_controller:flying_move(obj, tgt_pos, sp)
 	vel.y = lerp(vel.y, desired_vel.y, 0.5)
 	vel.z = lerp(vel.z, desired_vel.z, 0.5)
 
-	local node = core.get_node_or_nil(pos)
 	if entity.in_liquid then
 		entity.physics_controller:enable_gravity()
 		vel.x = vel.x * 0.5
@@ -202,7 +190,6 @@ function movement_controller:swimming_move(obj, tgt_pos, sp)
 	vel.z = target_dir.z * speed * speed_mod
 
 	if entity.physics_controller then
-		local node = core.get_node_or_nil(pos)
 		if entity.in_liquid then
 			entity.physics_controller:disable_gravity()
 		else
@@ -233,7 +220,6 @@ function movement_controller:update()
 	local yaw = parent:get_yaw()
 	local rot = parent:get_rotation()
 	local vel = parent:get_velocity()
-	local accel = parent:get_acceleration()
 	if not pos then return end -- Early exit if parent is invalid
 
 	local parent_entity = self:parent_entity()
@@ -263,9 +249,9 @@ function movement_controller:update()
 		self.state = "idle"
 
 		if parent_entity.touching_ground then
-			vel.x = vel.x * 0.8
+			vel.x = vel.x * friction
 			vel.y = vel.y
-			vel.z = vel.z * 0.8
+			vel.z = vel.z * friction
 		elseif self.movement_type == "fly" then
 			vel.x = vel.x * 0.7
 			vel.y = vel.y * 0.7

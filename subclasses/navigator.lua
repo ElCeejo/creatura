@@ -23,15 +23,6 @@ function navigator:new(parent, spec)
 	return setmetatable(new_navigator, navigator)
 end
 
-local function clamp(val, _min, _max)
-	if val < _min then
-		val = _min
-	elseif _max < val then
-		val = _max
-	end
-	return val
-end
-
 -- Return parent objects luaentity
 function navigator:parent_entity()
 	return self.parent and self.parent:get_luaentity()

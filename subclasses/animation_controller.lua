@@ -46,8 +46,6 @@ function animation_controller:update()
 
 	if self.on_step
 	and self.is_playing then
-		local anim_step = self.on_step
-
 		if self:on_step(self.parent, unpack(self.args)) then
 			self.on_step = nil
 		end

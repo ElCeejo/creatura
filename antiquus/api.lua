@@ -21,11 +21,6 @@ end
 
 local vec_dist = vector.distance
 
-local function vec_raise(v, n)
-	if not v then return end
-	return {x = v.x, y = v.y + n, z = v.z}
-end
-
 creatura.registered_movement_methods = {}
 
 function creatura.register_movement_method(name, func)
@@ -71,13 +66,13 @@ end
 function creatura.is_pos_moveable(pos, width, height)
 	local hitbox = {-width, 0, -width, width, height, width}
 
-	return mob_engine.is_pos_empty(pos, hitbox)
+	return creatura.is_pos_empty(pos, hitbox)
 end
 
 function creatura.is_blocked(pos, width, height)
 	local hitbox = {-width, 0, -width, width, height, width}
 
-	return not mob_engine.is_pos_empty(pos, hitbox)
+	return not creatura.is_pos_empty(pos, hitbox)
 end
 
 -- Target Selector translation
@@ -93,9 +88,12 @@ end
 function creatura.get_nearby_object(self, name)
 	local filter
 	if name then
-		filter = function(object, target)
-			local name = object and object:get_luaentity() and object:get_luaentity().name
+		filter = function(_, target)
 			local target_name = target and target:get_luaentity() and target:get_luaentity().name
+
+			if type(name) == "table" then
+				return (creatura.is_value_in_table(name, target_name) and 1) or 0
+			end
 
 			if name == target_name then return 1 end
 			return 0
@@ -108,9 +106,12 @@ end
 function creatura.get_nearby_objects(self, name)
 	local filter
 	if name then
-		filter = function(object, target)
-			local name = object and object:get_luaentity() and object:get_luaentity().name
+		filter = function(_, target)
 			local target_name = target and target:get_luaentity() and target:get_luaentity().name
+
+			if type(name) == "table" then
+				return (creatura.is_value_in_table(name, target_name) and 1) or 0
+			end
 
 			if name == target_name then return 1 end
 			return 0
@@ -303,7 +304,7 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 		add_wear = not minetest.is_creative_enabled(puncher:get_player_name())
 	end
 	if (self.immune_to
-	and contains_val(self.immune_to, tool_name)) then
+	and creatura.is_value_in_table(self.immune_to, tool_name)) then
 		return
 	end
 	local damage = 0

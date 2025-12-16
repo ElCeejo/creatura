@@ -22,6 +22,15 @@ function creatura.get_yaw_to_pos(pos1, pos2)
 	return math.atan2(z, x) - pi / 2
 end
 
+function creatura.is_value_in_table(tbl, val)
+	for _, v in pairs(tbl) do
+		if v == val then
+			return true
+		end
+	end
+	return false
+end
+
 -- Debugging
 
 function creatura.particle(pos, time, tex)
@@ -44,7 +53,7 @@ function creatura.get_wander_pos(pos, range)
 	local random_offset = {
 		x = (random() * 2-1) * range,
 		y = 0,
-		z = (random() * 2-1) * range 
+		z = (random() * 2-1) * range
 	}
 	local wander_pos = vector.add(pos, random_offset)
 

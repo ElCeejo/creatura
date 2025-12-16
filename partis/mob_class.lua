@@ -516,16 +516,16 @@ function mob_class:on_step(dtime, moveresult)
 end
 
 -- On Punch
-function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, dir, damage)
+function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, dir, _damage)
 	if not puncher then return end
 
 	-- Get info from player and the players tool
 	local tool
-	local tool_name = ""
+	--local tool_name = ""
 	local add_wear = false
 	if puncher:is_player() then
 		tool = puncher:get_wielded_item()
-		tool_name = tool:get_name()
+		--tool_name = tool:get_name()
 		add_wear = not minetest.is_creative_enabled(puncher:get_player_name())
 	end
 
@@ -544,8 +544,8 @@ function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, di
 	if damage > 0 then
 		local pos = self.object:get_pos()
 		local puncher_pos = puncher:get_pos()
-		if not pos or not puncher:get_pos() then return end
-		local dist = vector.distance(self.object:get_pos(), puncher:get_pos())
+		if not pos or not puncher_pos then return end
+		local dist = vector.distance(pos, puncher_pos)
 		dir.y = 0.2
 		if self.touching_ground then
 			local power = clamp((damage / dist) * 8, 0, 8)
@@ -560,7 +560,7 @@ function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, di
 		tool:add_wear(wear)
 		puncher:set_wielded_item(tool)
 	end
-	
+
 	-- Play sounds
 	if (time_from_last_punch or 0) > 0.5 then
 		if math.random(2) < 2 then
@@ -570,7 +570,7 @@ function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, di
 	end
 
 	if self.on_hit then
-		self:on_hit(puncher, time_from_last_punch, tool_capabilities, dir, damage)
+		self:on_hit(puncher, time_from_last_punch, tool_capabilities, dir, _damage)
 	end
 end
 
@@ -589,6 +589,8 @@ function mob_class:on_rightclick(clicker)
 		wielded_item = (self.on_fed and self:on_fed(clicker, wielded_item, feed_count)) or wielded_item
 		self.feed_count = feed_count
 	end
+
+	clicker:set_wielded_item(wielded_item)
 
 	if self.on_interact then
 		self:on_interact(clicker)

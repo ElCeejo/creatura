@@ -109,12 +109,11 @@ function target_selector:get_nearest_player(filter)
 		if player and player:is_player() then
 			local player_pos = player and player:get_pos()
 
-			if player_pos then
+			if player_pos
+			and (not filter or (filter(self.parent, player) or 0) > 0) then
 				local dist = vector.distance(pos, player_pos)
 
-				if dist < lowest_dist
-				and (not filter
-				or filter(self.parent, player)) then
+				if dist < lowest_dist then
 					nearest_player = player
 					lowest_dist = dist
 				end
@@ -135,11 +134,12 @@ function target_selector:get_players(filter)
 	if not pos then return end
 
 	local result = {}
+	local highest_score = 0
 
 	for _, player in ipairs(self.objects) do
 		if player and player:is_player() then
 			if not filter
-			or filter(self.parent, player) then
+			or (filter(self.parent, player) or 0) > highest_score then
 				table.insert(result, player)
 			end
 		end
@@ -165,7 +165,7 @@ function target_selector:get_nearest_mob(filter)
 		local entity = object and object:get_luaentity()
 
 		if entity
-		and (not filter or filter(self.parent, object)) then
+		and (not filter or (filter(self.parent, object) or 0) > 0) then
 			local dist = vector.distance(pos, object_pos)
 
 			if dist < lowest_dist then
@@ -188,13 +188,14 @@ function target_selector:get_mobs(filter)
 	if not pos then return end
 
 	local result = {}
+	local highest_score = 0
 
 	for _, object in ipairs(self.objects) do
-		local object_pos = object and object:get_pos()
 		local entity = object and object:get_luaentity()
 
 		if entity
-		and (not filter or filter(self.parent, object)) then
+		and self:is_target_valid(object)
+		or (filter(self.parent, object) or 0) > highest_score then
 			table.insert(result, object)
 		end
 	end
@@ -205,8 +206,6 @@ end
 -- Find a new target
 -- optional: specify a function to filter which target should be singled out
 function target_selector:find_target(priority_filter)
-    local pos = self.parent:get_pos()
-
 	if priority_filter then self.priority_filter = priority_filter end
 	self:cache_targets()
     local objects = self.objects

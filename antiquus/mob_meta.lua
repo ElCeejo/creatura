@@ -418,17 +418,30 @@ function mob:is_pos_safe(pos, ignore_liquid)
 	return fall_safe
 end
 
+function mob:get_distance(target)
+	if not target then return end
+	if type(target) == "userdata" then
+		target = target:get_pos()
+	end
+
+	return vector.distance(self.object:get_pos(), target)
+end
+
 -- Set mobs animation (if specified animation isn't already playing)
 
 function mob:animate(animation, transition)
-	if animation == self.animation_controller:get_animation() then return end
+	local current_animation = self.animation_controller:get_animation()
+	if current_animation == animation
+	or current_animation == transition then
+		return current_animation
+	end
 
-	local animation_controller = self.animation_controller
-	animation_controller:set_animation(animation)
+	local anim_controller = self.animation_controller
+	anim_controller:set_animation(animation)
 	if transition then
-		animation_controller:on_end(function(animation_controller)
-			animation_controller:set_animation(transition)
-		end, animation_controller)
+		anim_controller:on_end(function(ctrl)
+			ctrl:set_animation(transition)
+		end, anim_controller)
 	end
 
 	return animation

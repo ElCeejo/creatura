@@ -16,13 +16,9 @@ function creatura.register_behavior(name, def)
 
 		can_continue = def.can_continue or function() return true end,
 
-		on_step = def.on_step or function(behavior, entity)
-			local animation_controller = entity.animation_controller
-			if not animation_controller then return end
-			animation_controller:set_animation("idle")
-		end,
+		on_step = def.on_step or function() end,
 
-		on_end = def.on_end or function(behavior) --[[behavior:set_cooldown(10)]] end
+		on_end = def.on_end or function() --[[behavior:set_cooldown(10)]] end
 	}
 
 	function new_behavior:get_name()

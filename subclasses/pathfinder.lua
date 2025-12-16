@@ -28,17 +28,6 @@ end
 
 local abs = math.abs
 
-local neighbor_grid = {
-	{x = 1, y = 0, z = 0},
-	{x = 1, y = 0, z = 1},
-	{x = 0, y = 0, z = 1},
-	{x = -1, y = 0, z = 1},
-	{x = -1, y = 0, z = 0},
-	{x = -1, y = 0, z = -1},
-	{x = 0, y = 0, z = -1},
-	{x = 1, y = 0, z = -1}
-}
-
 function pathfinder:visualize()
 	local path = self.path
 	if not path or #path < 1 then return end
