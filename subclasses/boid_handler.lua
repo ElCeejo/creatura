@@ -44,7 +44,7 @@ function boid_handler:get_neighbors()
 
 	self.neighbors = {}
 
-	for _, object in ipairs(minetest.get_objects_inside_radius(pos, self.radius)) do
+	for _, object in ipairs(core.get_objects_inside_radius(pos, self.radius)) do
 		if object ~= parent then
 			local ent = object and object:get_luaentity()
 			if ent and ent.name == parent_entity.name then
@@ -76,20 +76,30 @@ function boid_handler:get_direction()
 			local diff = vec_sub(pos, neighbor_pos)
 			local dist = diff:length()
 
-			separation = separation + vec_mul(diff:normalize(), 1 / dist)
-			alignment = alignment + object:get_velocity()
-			cohesion = cohesion + neighbor_pos
-			count = count + 1
+			if dist > 0 then
+				separation = separation + (diff:normalize() / dist)
+				alignment = alignment + object:get_velocity()
+				cohesion = cohesion + neighbor_pos
+				count = count + 1
+			end
 		end
 	end
 
 	if count == 0 then return {x = 0, y = 0, z = 0} end
 
-	separation = (separation * (1 / count)) * self.separation
-	alignment = (alignment * (1 / count)) * self.alignment
-	cohesion = vec_sub((cohesion * (1 / count)), pos) * self.cohesion
+	separation = (separation / count) * self.separation
+	alignment = (alignment / count) * self.alignment
+	cohesion = vec_sub((cohesion / count), pos) * self.cohesion
 
-	return separation + alignment + cohesion
+	local output = separation + alignment + cohesion
+
+	local len = output:length()
+	if self.max_force
+	and len > self.max_force then
+		output = vec_mul(output:normalize(), self.max_force)
+	end
+
+	return output
 end
 
 return boid_handler

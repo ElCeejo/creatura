@@ -56,9 +56,17 @@ function movement_controller:parent_entity()
 	return self.parent and self.parent:get_luaentity()
 end
 
-function movement_controller:initiate_boids()
+-- Intitate boid handler
+function movement_controller:initiate_boids(spec)
 	self.is_boid = true
-	self.boid_handler = boid_handler:new(self.parent)
+	self.boid_tick = true
+	self.boid_handler = boid_handler:new(self.parent, spec)
+end
+
+-- Remove boid handler
+function movement_controller:end_boids()
+	self.is_boid = false
+	self.boid_handler = nil
 end
 
 -- Directly set velocity in current look dir
@@ -199,7 +207,7 @@ function movement_controller:swimming_move(obj, tgt_pos, sp)
 	if self.is_boid then
 		local boid_dir = self.boid_handler:get_direction()
 		if vector.length(boid_dir) ~= 0 then
-			target_dir = vector.divide(vector.add(target_dir, boid_dir), 2)
+			target_dir = vector.add(target_dir, boid_dir):normalize()
 			target_yaw = minetest.dir_to_yaw(target_dir)
 		end
 	end
