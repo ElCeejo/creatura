@@ -707,6 +707,9 @@ function creatura.register_mob(name, def)
 		end
 	end
 
+	def._creatura_mob = true
+	def.is_creatura_mob = true -- In-line with new conventions, denotes post-Nova mob
+
 	core.register_entity(name, setmetatable(def, mob_class))
 end
 
