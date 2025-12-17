@@ -86,9 +86,8 @@ function creatura.get_nearby_players(self)
 end
 
 function creatura.get_nearby_object(self, name)
-	local filter
-	if name then
-		filter = function(_, target)
+	local filter = function(_, target)
+		if name then
 			local target_name = target and target:get_luaentity() and target:get_luaentity().name
 
 			if type(name) == "table" then
@@ -96,17 +95,15 @@ function creatura.get_nearby_object(self, name)
 			end
 
 			if name == target_name then return 1 end
-			return 0
 		end
+		return 0
 	end
-
 	return self.target_selector:get_nearest_mob(filter)
 end
 
 function creatura.get_nearby_objects(self, name)
-	local filter
-	if name then
-		filter = function(_, target)
+	local filter = function(_, target)
+		if name then
 			local target_name = target and target:get_luaentity() and target:get_luaentity().name
 
 			if type(name) == "table" then
@@ -114,10 +111,9 @@ function creatura.get_nearby_objects(self, name)
 			end
 
 			if name == target_name then return 1 end
-			return 0
 		end
+		return 0
 	end
-
 	return self.target_selector:get_mobs(filter) or {}
 end
 
