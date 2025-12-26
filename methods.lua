@@ -404,7 +404,7 @@ creatura.action_walk = creatura.action_move -- Support for outdated versions
 -- Idle
 
 function creatura.action_idle(self, time, anim)
-	local timer = time
+	local timer = time or 1
 	local function func(_self)
 		_self:set_gravity(-9.8)
 		_self:halt()
