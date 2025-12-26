@@ -394,9 +394,9 @@ function creatura.default_water_physics(self)
 end
 
 function creatura.default_vitals(self)
-	local pos = self.stand_pos
-	local node = self.stand_node
-	if not pos or node then return end
+	local pos = self.object:get_pos()
+	local node = minetest.get_node_or_nil(pos)
+	if not pos or not node then return end
 
 	local max_fall = self.max_fall or 3
 	local in_liquid = self.in_liquid
@@ -450,7 +450,8 @@ function creatura.default_vitals(self)
 		if fire_resist < 1
 		and minetest.get_item_group(stand_def.name, "igniter") > 0
 		and stand_def.damage_per_second then
-			damage = (damage or 0) + stand_def.damage_per_second * fire_resist
+			local fire_damage = stand_def.damage_per_second - (stand_def.damage_per_second * fire_resist)
+			damage = (damage or 0) + fire_damage
 		end
 	end
 
@@ -542,11 +543,11 @@ function creatura.basic_punch_func(self, puncher, tflp, tool_caps, dir)
 		tool:add_wear(wear)
 		puncher:set_wielded_item(tool)
 	end
-	if random(2) < 2 then
-		self:play_sound("hurt")
-	end
 	if (tflp or 0) > 0.5 then
 		self:play_sound("hit")
+		if random(2) < 2 then
+			self:play_sound("hurt")
+		end
 	end
 	self:indicate_damage()
 end
