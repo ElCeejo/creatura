@@ -56,6 +56,8 @@ end
 ---------------
 -- Utilities --
 ---------------
+creatura.vec_center = vec_center
+creatura.vec_raise = vec_raise
 
 function creatura.is_valid(mob)
 	if not mob then return false end
