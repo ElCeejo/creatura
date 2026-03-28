@@ -5,15 +5,14 @@
 -- Subclasses
 
 local path_subclass = creatura.path_subclass
-local animation_controller = dofile(path_subclass .. "/animation_controller.lua") -- Gestus
-local physics_controller = dofile(path_subclass .. "/physics_controller.lua") -- Corpus
-local movement_controller = dofile(path_subclass .. "/movement_controller.lua") -- Motus
-local target_selector = dofile(path_subclass .. "/target_selector.lua") -- Sensus
-local navigator = dofile(path_subclass .. "/navigator.lua") -- Iter
-local utility_stack = dofile(path_subclass .. "/utility_stack.lua") -- Animus
-
-creatura.navigator = navigator
 creatura.a_star_pathfinder = dofile(path_subclass .. "/pathfinder.lua")
+
+local animation_controller = dofile(path_subclass .. "/animation_controller.lua")
+local physics_controller = dofile(path_subclass .. "/physics_controller.lua")
+local movement_controller = dofile(path_subclass .. "/movement_controller.lua")
+local target_selector = dofile(path_subclass .. "/target_selector.lua")
+local path_follower = dofile(path_subclass .. "/path_follower.lua")
+local utility_stack = dofile(path_subclass .. "/utility_stack.lua")
 
 -- Math
 
@@ -36,7 +35,7 @@ local mob_class = {
 	physical = true,
 	collide_with_objects = false,
 	collisionbox = {-0.5, 0, -0.5, 0.5, 1, 0.5},
-	selectionbox = {-0.5, 0, -0.5, 0.5, 1, 0.5},
+	--selectionbox = {-0.5, 0, -0.5, 0.5, 1, 0.5},
 	pointable = true,
 	visual = "mesh",
 	visual_size = {x = 1, y = 1, z = 1},
@@ -60,6 +59,7 @@ local mob_class = {
 	max_fall = 3,
 	armor_groups = {fleshy = 100},
 	turn_rate = 3.14,
+	jump_height = 1.1,
 	tempted_by = {}
 }
 
@@ -67,6 +67,18 @@ mob_class.__index = mob_class
 
 function mob_class:get_definition()
 	return core.registered_entities[self.name]
+end
+
+-- DEPRECATED
+
+function mob_class:indicate_damage()
+	self._original_texture_mod = self._original_texture_mod or self.object:get_texture_mod()
+	self.object:set_texture_mod(self._original_texture_mod .. "^[multiply:#FF000040")
+	minetest.after(0.2, function()
+		if creatura.is_alive(self) then
+			self.object:set_texture_mod(self._original_texture_mod)
+		end
+	end)
 end
 
 -- Debugging
@@ -86,6 +98,37 @@ function mob_class:parse_diagnostic_array()
 	self.object:set_properties({
 		nametag = table.concat(array, "")
 	})
+end
+
+function mob_class:calculate_mob_collision()
+	if not creatura.is_alive(self)
+	or self.fancy_collide == false then return end
+	local pos = self.object:get_pos()
+	local width = self.width * 0.5
+	local objects = minetest.get_objects_in_area(vector.subtract(pos, width), vector.add(pos, width))
+	if #objects < 2 then return end
+	local pos2
+	local dir
+	local vel, vel2
+	for i = 2, #objects do
+		local object = objects[i]
+		if creatura.is_alive(object)
+		and not self.object:get_attach()
+		and not object:get_attach() then
+			if i > 5 then break end
+			pos2 = object:get_pos()
+			dir = vector.direction(pos, pos2)
+			dir.y = 0
+			if dir.x == 0 and dir.z == 0 then
+				dir = vector.new(random(-1, 1) * random(), 0,
+								 random(-1, 1) * random())
+			end
+			vel = vector.multiply(dir, 1.5)
+			vel2 = vector.multiply(dir, -1.2) -- multiplying by -2 accounts for friction
+			self.object:add_velocity(vel2)
+			object:add_velocity(vel)
+		end
+	end
 end
 
 -- Sounds
@@ -300,7 +343,7 @@ end
 
 -- Environmental damage
 function mob_class:check_environment_damage()
-		local pos = self.object:get_pos()
+	local pos = self.object:get_pos()
 	if not pos then return end
 
 	local node_at_pos = core.get_node(pos)
@@ -315,6 +358,7 @@ function mob_class:check_environment_damage()
 
 			if fall_height >= self.max_fall then
 				self:hurt(math.floor(fall_height)) -- TODO: Armor groups
+				self:indicate_damage()
 			end
 		end
 	end
@@ -323,7 +367,10 @@ function mob_class:check_environment_damage()
 	if self:timer(1) then
 		local def = core.registered_nodes[node_at_pos.name]
 
-		if def.damage_per_second and def.damage_per_second > 0 then self:hurt(def.damage_per_second) end
+		if def.damage_per_second and def.damage_per_second > 0 then
+			self:hurt(def.damage_per_second)
+			self:indicate_damage()
+		end
 	end
 
 	-- Breath
@@ -337,6 +384,7 @@ function mob_class:check_environment_damage()
 			if core.get_item_group(node_at_head.name, "liquid") > 0 then
 				if self.breath <= 0 then
 					self:hurt(1)
+					self:indicate_damage()
 				else
 					self.breath = (self.breath or self.max_breath) - 1
 				end
@@ -367,6 +415,7 @@ function mob_class:get_staticdata()
 	local data = {}
 	data.perm_data = self.perm_data
 	data.health = self.health or self.hp or self.max_health
+	self.hp = data.health -- backward compatability
 	data.breath = self.breath or self.max_breath
 
 	data._custom_texture_table = self._custom_texture_table
@@ -424,7 +473,7 @@ function mob_class:on_activate(staticdata, dtime)
 	self.width, self.height = self:get_hitbox_scale()
 
 	self.target_selector = target_selector:new(self.object)
-	self.navigator = navigator:new(self.object)
+	self.path_follower = path_follower:new(self.object)
 	self.animation_controller = animation_controller:new(self.object)
 	self.physics_controller = physics_controller:new(self.object)
 	self.movement_controller = movement_controller:new(self.object)
@@ -470,6 +519,7 @@ function mob_class:on_step(dtime, moveresult)
 	self.dtime = dtime
 	self.moveresult = moveresult
 	self.touching_ground = moveresult.touching_ground
+	self.stand_pos = self.object:get_pos()
 
 	self:check_environment_damage()
 	self:growth_step()
@@ -479,9 +529,9 @@ function mob_class:on_step(dtime, moveresult)
 	self.physics_controller:update()
 	self.movement_controller:update()
 
-	if self.health <= 0 then
+	if (self.health or self.hp) <= 0 then
 		if self.utility_stack then self.utility_stack:end_behavior() end
-		self.navigator:stop()
+		self.path_follower:stop()
 		self.movement_controller:stop()
 		if self:on_death() then
 			self.object:remove()
@@ -495,12 +545,20 @@ function mob_class:on_step(dtime, moveresult)
 		self.utility_stack:update()
 	end
 
-	self.navigator:update()
+	if self.pathfinder then self.pathfinder:update() end
+	self.path_follower:update()
 	self.animation_controller:update()
 
 	self:parse_diagnostic_array()
 
 	if self.step_func then self:step_func(dtime, moveresult) end
+
+	if self.sounds
+	and self:timer(5)
+	and self.sounds["random"]
+	and math.random(3) == 1 then
+		self:play_sound("random")
+	end
 
 	self.properties = nil
 	self.active_time = self.active_time + dtime
@@ -552,6 +610,7 @@ function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, di
 			self:apply_knockback(dir, power)
 		end
 		self:hurt(damage)
+		self:indicate_damage()
 	end
 
 	-- Add wear to players tool if applicable
@@ -640,6 +699,24 @@ function mob_class:has_reached_or_passed(pos2)
 
 	return (dir.x * to_dest.x + dir.z * to_dest.z) < 0
 end
+
+-- Utils
+
+--[[function mob_class:get_closest_player()
+	local target_selector = self.target_selector
+	if not target_selector then return end
+
+	return target_selector:get_closest_player()
+end
+
+function mob_class:get_owner()
+	if not self.owner then return end
+
+	local owner = core.get_player_by_name(self.owner)
+	if not owner or not owner:is_valid() then return end
+
+	return owner
+end]]
 
 -- Register Mob
 function creatura.register_mob(name, def)

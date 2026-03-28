@@ -13,7 +13,7 @@ function utility_stack:new(object)
 		varargs = {}
 	}
 
-	return setmetatable(new_stack, utility_stack)
+	return setmetatable(new_stack, self)
 end
 
 -- Return parent objects luaentity
@@ -63,9 +63,10 @@ function utility_stack:update()
 				local score, varargs = util:get_score(parent_entity)
 				if not score then score = 0 end
 
-				if score > candidate_score
+				if score > 0 -- NEVER initiate with a score of 0
+				and (score > candidate_score
 				or (score == candidate_score
-				and index > candidate_index) then -- New utility must have a higher score or equal score with higher priority
+				and index > candidate_index)) then -- New utility must have a higher score or equal score with higher priority
 					candidate_behavior = util
 					candidate_score = score
 					candidate_index = index
@@ -82,6 +83,8 @@ function utility_stack:update()
 
 	local current_behavior = self.active_behavior
 	if not getmetatable(current_behavior) then return end
+
+	--parent_entity:add_diagnostic("Current Behavior", current_behavior:get_name())
 
 	if current_behavior:can_continue(parent_entity, unpack(self.varargs)) then
 		local step_result = current_behavior:on_step(parent_entity, unpack(self.varargs))

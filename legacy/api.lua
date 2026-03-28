@@ -78,43 +78,47 @@ end
 -- Target Selector translation
 
 function creatura.get_nearby_player(self)
-	return self.target_selector:get_nearest_player()
+	local predicate = {
+		check_sight = false,
+		include = {
+			["player"] = true,
+		}
+	}
+
+	return self.target_selector:find_target(predicate)
 end
 
 function creatura.get_nearby_players(self)
-	return self.target_selector:get_players() or {}
+	local predicate = {
+		check_sight = false,
+		include = {
+			["player"] = true,
+		}
+	}
+
+	return self.target_selector:find_targets(predicate) or {}
 end
 
 function creatura.get_nearby_object(self, name)
-	local filter = function(_, target)
-		if name then
-			local target_name = target and target:get_luaentity() and target:get_luaentity().name
+	if type(name) == "string" then name = {name = true} end
 
-			if type(name) == "table" then
-				return (creatura.is_value_in_table(name, target_name) and 1) or 0
-			end
+	local predicate = {
+		check_sight = false,
+		include = name
+	}
 
-			if name == target_name then return 1 end
-		end
-		return 0
-	end
-	return self.target_selector:get_nearest_mob(filter)
+	return self.target_selector:find_target(predicate)
 end
 
 function creatura.get_nearby_objects(self, name)
-	local filter = function(_, target)
-		if name then
-			local target_name = target and target:get_luaentity() and target:get_luaentity().name
+	if type(name) == "string" then name = {name = true} end
 
-			if type(name) == "table" then
-				return (creatura.is_value_in_table(name, target_name) and 1) or 0
-			end
+	local predicate = {
+		check_sight = false,
+		include = name
+	}
 
-			if name == target_name then return 1 end
-		end
-		return 0
-	end
-	return self.target_selector:get_mobs(filter) or {}
+	return self.target_selector:find_targets(predicate) or {}
 end
 
 creatura.get_nearby_entity = creatura.get_nearby_object

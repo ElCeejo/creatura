@@ -19,7 +19,7 @@ function animation_controller:new(object)
 		end_action = {}
 	}
 
-	return setmetatable(new_animator, animation_controller)
+	return setmetatable(new_animator, self)
 end
 
 
@@ -81,10 +81,11 @@ function animation_controller:set_animation(name, ...)
 
 	self.current_animation = name
 
-	local length_frames = animation_def.range.y - animation_def.range.x
+	local animation_range = animation_def.range or {x = 0, y = 30}
+	local length_frames = animation_range.y - animation_range.x
 	self.length_frames = length_frames
-	self.animation_speed = animation_def.speed
-	self.blend_delay = animation_def.frame_blend
+	self.animation_speed = animation_def.speed or 30
+	self.blend_delay = animation_def.frame_blend or 0
 	self.current_frame = 0
 
 	self.is_playing = true

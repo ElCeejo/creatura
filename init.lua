@@ -1,5 +1,5 @@
 creatura = {
-	path_partis = minetest.get_modpath("creatura") .. "/partis",
+	path_api = minetest.get_modpath("creatura") .. "/api",
 	path_subclass = minetest.get_modpath("creatura") .. "/subclasses",
 }
 
@@ -9,15 +9,15 @@ creatura.sounds = {
 }
 
 -- Load API
-dofile(creatura.path_partis .. "/register.lua")
-dofile(creatura.path_partis .. "/spawning.lua")
-dofile(creatura.path_partis .. "/particle_effects.lua")
-dofile(creatura.path_partis .. "/helper_functions.lua")
-dofile(creatura.path_partis .. "/mob_class.lua")
+dofile(creatura.path_api .. "/register.lua")
+dofile(creatura.path_api .. "/spawning.lua")
+dofile(creatura.path_api .. "/particle_effects.lua")
+dofile(creatura.path_api .. "/helper_functions.lua")
+dofile(creatura.path_api .. "/mob_class.lua")
 
--- Antiquus (Support for mods still dependant on out-of-date Creatura versions)
-local path_antiquus = minetest.get_modpath("creatura") .. "/antiquus"
-dofile(path_antiquus .. "/mob_meta.lua")
-dofile(path_antiquus .. "/api.lua")
-dofile(path_antiquus .. "/boids.lua")
-dofile(path_antiquus .. "/methods.lua")
+-- Legacy support for older Creatura versions
+local path_legacy = minetest.get_modpath("creatura") .. "/legacy"
+dofile(path_legacy .. "/mob_meta.lua")
+dofile(path_legacy .. "/api.lua")
+dofile(path_legacy .. "/boids.lua")
+dofile(path_legacy .. "/methods.lua")

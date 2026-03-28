@@ -21,7 +21,7 @@ function movement_controller:new(parent, spec)
 	new_controller.movement_type = new_controller.movement_type or "ground"
 	new_controller.speed = new_controller.speed or parent_entity.speed
 
-	return setmetatable(new_controller, movement_controller)
+	return setmetatable(new_controller, self)
 end
 
 local abs = math.abs
@@ -106,9 +106,9 @@ function movement_controller:jump(_yaw, _pitch, power)
 	local yaw = _yaw or self.parent:get_yaw()
 	local vel = self.parent:get_velocity()
 
-	local pitch = math.rad(_pitch)
-	local upward_power = math.sin(pitch) * power
-	local forward_power = math.cos(pitch) * power
+	local pitch = math.rad(_pitch or 60)
+	local upward_power = math.sin(pitch) * (power or self.speed)
+	local forward_power = math.cos(pitch) * (power or self.speed)
 
 	self.parent:set_velocity({
 		x = 0,
@@ -129,7 +129,7 @@ function movement_controller:turn(target_yaw)
 end
 
 -- Default movement calculation
-function movement_controller:ground_move(obj, tgt_pos, sp)
+function movement_controller:ground_move(obj, tgt_pos, sp) -- TODO: Rename to get_walk_vector
 	local target_pos = tgt_pos or self.target_pos
 	local speed = sp or self.speed
 
@@ -149,7 +149,7 @@ function movement_controller:ground_move(obj, tgt_pos, sp)
 	return vel, target_yaw
 end
 
-function movement_controller:flying_move(obj, tgt_pos, sp)
+function movement_controller:flying_move(obj, tgt_pos, sp) -- TODO: Rename to get_fly_vector
 	local target_pos = tgt_pos or self.target_pos
 	local speed = sp or self.speed
 
@@ -190,7 +190,7 @@ function movement_controller:flying_move(obj, tgt_pos, sp)
 	return vel, target_yaw
 end
 
-function movement_controller:swimming_move(obj, tgt_pos, sp)
+function movement_controller:swimming_move(obj, tgt_pos, sp) -- TODO: Rename to get_swim_vector
 	local target_pos = tgt_pos or self.target_pos
 	local speed = sp or self.speed
 
@@ -272,6 +272,22 @@ function movement_controller:update()
 
 		self.state = "idle"
 		--entity:add_diagnostic("target_yaw", target_yaw)
+
+		if parent_entity.stepheight < 1.1 then
+			local hitbox_edge = creatura.get_hitbox_edge(yaw, parent_entity.width)
+			local check_pos = {
+				x = pos.x + hitbox_edge.x + -math.sin(yaw),
+				y = pos.y,
+				z = pos.z + hitbox_edge.z + math.cos(yaw),
+			}
+
+			if self.movement_type == "ground"
+			and creatura.is_walkable(check_pos) then
+				self:jump()
+				vel = parent:get_velocity()
+				target_vel = nil
+			end
+		end
 	else
 		self.state = "idle"
 

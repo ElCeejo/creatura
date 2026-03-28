@@ -9,7 +9,7 @@ function physics_controller:new(object)
 		gravity = -9.8
 	}
 
-	return setmetatable(new_controller, physics_controller)
+	return setmetatable(new_controller, self)
 end
 
 -- Enable gravity and specifify force to be used (optional)
@@ -26,6 +26,7 @@ end
 -- Calculate physics every server-step
 function physics_controller:update()
 	local parent = self.parent
+	local parent_entity = parent:get_luaentity()
 	local accel = parent:get_acceleration()
 	local vel = parent:get_velocity()
 
@@ -42,12 +43,13 @@ function physics_controller:update()
 	local current_node = minetest.get_node(current_pos)
 	local in_water = minetest.get_item_group(current_node.name, "liquid") ~= 0
 
-	if in_water then
+	if in_water
+	and self.is_gravity_enabled then
 		local visc = math.min(minetest.registered_nodes[current_node.name].liquid_viscosity, 7) + 1
 		accel.y = -1.2 / visc
 
 		-- Check higher portion of hitbox
-		current_pos.y = current_pos.y + 0.5
+		current_pos.y = current_pos.y + (parent_entity.height * (parent_entity.hitbox_submergence or 0.5))
 		current_node = minetest.get_node(current_pos)
 
 		local in_deep_water = minetest.get_item_group(current_node.name, "liquid") ~= 0

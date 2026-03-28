@@ -16,7 +16,7 @@ function boid_handler:new(parent, spec)
 	new_boid_handler.radius = new_boid_handler.radius or 3
 	new_boid_handler.neighbors = {}
 
-	return setmetatable(new_boid_handler, boid_handler)
+	return setmetatable(new_boid_handler, self)
 end
 
 -- Return parent objects luaentity

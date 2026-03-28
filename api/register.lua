@@ -21,7 +21,7 @@ function creatura.register_behavior(name, def)
 		on_end = def.on_end or function() --[[behavior:set_cooldown(10)]] end
 	}
 
-	function new_behavior:get_name()
+	function new_behavior.get_name()
 		return name
 	end
 

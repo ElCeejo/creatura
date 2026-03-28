@@ -3,27 +3,27 @@ pathfinder.__index = pathfinder
 
 -- Create new instance
 function pathfinder:new(object, spec)
-	local new_pathfinder = {
-		parent = object,
+	local new_pathfinder = spec or {}
 
-		start_pos = {},
-		target_pos = {},
-		path = {},
+	new_pathfinder.parent = object
 
-		open_set = {},
-		closed_set = {},
-		came_from = {},
-		g_score = {},
+	new_pathfinder.start_pos = {}
+	new_pathfinder.target_pos = {}
+	new_pathfinder.path = {}
 
-		finding_path = false,
+	new_pathfinder.open_set = {}
+	new_pathfinder.closed_set = {}
+	new_pathfinder.came_from = {}
+	new_pathfinder.g_score = {}
 
-		recalculate_timer = 0,
+	new_pathfinder.finding_path = false
 
-		get_neighbors = spec.get_neighbors,
-		get_neighbor_grid = spec.get_neighbor_grid
-	}
+	new_pathfinder.recalculate_timer = 0
 
-	return setmetatable(new_pathfinder, pathfinder)
+	new_pathfinder.get_neighbors = new_pathfinder.get_neighbors or nil
+	new_pathfinder.get_neighbor_grid = new_pathfinder.get_neighbor_grid or nil
+
+	return setmetatable(new_pathfinder, self)
 end
 
 local abs = math.abs
@@ -42,7 +42,7 @@ function pathfinder:parent_entity()
 	return self.parent and self.parent:get_luaentity()
 end
 
-function pathfinder:get_heuristic_cost(pos1, pos2)
+function pathfinder.get_heuristic_cost(pos1, pos2)
 	local distX = abs(pos1.x - pos2.x)
 	local distY = abs(pos1.y - pos2.y)
 	local distZ = abs(pos1.z - pos2.z)
@@ -71,11 +71,11 @@ function pathfinder:set_target(pos2, max_expansions_per_step, recalc_timer)
 
 	self:heap_push({
 		pos = vector.round(pos1),
-		f_cost = self:get_heuristic_cost(self.start_pos, self.target_pos),
+		f_cost = self.get_heuristic_cost(self.start_pos, self.target_pos),
 		g_score = 0
 	})
 
-	self.g_score[self:hash_position(self.start_pos)] = 0
+	self.g_score[self.hash_position(self.start_pos)] = 0
 	self.finding_path = true
 end
 
@@ -95,8 +95,13 @@ function pathfinder:clear_path()
 	self.path = {}
 end
 
-function pathfinder:get_path()
-	if not self.path or #self.path < 1 then return end
+function pathfinder:get_path(target_pos)
+	if target_pos then
+		self:set_target(target_pos)
+		return {}
+	end
+
+	if not self.path or #self.path < 1 then return {} end
 
 	return self.path
 end
@@ -106,22 +111,24 @@ end
 local test_box = {-0.5, 0, -0.5, 0.5, 1, 0.5}
 
 
-function pathfinder:is_empty(pos, box)
+function pathfinder.is_empty(pos, box)
 	--[[if math.abs(box[1]) + math.abs(box[4]) <= 1
 	and box[5] <= 1 then -- only check 1 node if box doesn't exceed 1 node in size
 		return (not creatura.is_walkable(pos)) and creatura.is_on_ground(pos)
 	end]]
 
+	local floor_y = math.floor(pos.y + 0.5) - 0.49
+
 	local min_p = {
-		x = math.floor(pos.x + 0.5 + box[1]),
-		y = math.floor(pos.y + 0.5 + box[2]),
-		z = math.floor(pos.z + 0.5 + box[3])
+		x = pos.x + (box[1] + 0.01),
+		y = floor_y + (box[2] + 0.01),
+		z = pos.z + (box[3] + 0.01)
 	}
 
 	local max_p = {
-		x = math.floor(pos.x + 0.5 + box[4]),
-		y = math.floor(pos.y + 0.5 + box[5]),
-		z = math.floor(pos.z + 0.5 + box[6])
+		x = pos.x + (box[4] - 0.01),
+		y = floor_y + (box[5] - 0.01),
+		z = pos.z + (box[6] - 0.01)
 	}
 
 	local ground_check_passed = false
@@ -144,7 +151,7 @@ function pathfinder:is_empty(pos, box)
 	return ground_check_passed
 end
 
-function pathfinder:get_neighbor_grid(pos)
+function pathfinder.get_neighbor_grid(pos)
 	local p1 = vector.new(pos)
 	return {
 		p1:add({x = 1, y = 0, z = 0}),
@@ -158,7 +165,7 @@ function pathfinder:get_neighbor_grid(pos)
 	}
 end
 
-function pathfinder:get_neighbor_grid_3d(pos)
+function pathfinder.get_neighbor_grid_3d(pos)
 	local p1 = vector.new(pos)
 	return {
 		p1,
@@ -175,15 +182,15 @@ end
 
 function pathfinder:get_neighbors(pos)
 	local results = {}
-	for i, pos1 in ipairs(self:get_neighbor_grid(pos)) do
+	for i, pos1 in ipairs(self.get_neighbor_grid(pos)) do
 		local is_diagonal = math.floor(i) == i
-		if self:is_empty(pos1, test_box)
+		if self.is_empty(pos1, test_box)
 		and (not is_diagonal or creatura.line_of_sight(pos, pos1)) then
 			results[#results + 1] = pos1
-		elseif self:is_empty(pos1:offset(0, 1, 0), test_box)
+		elseif self.is_empty(pos1:offset(0, 1, 0), test_box)
 		and (not is_diagonal or creatura.line_of_sight(pos:offset(0, 1, 0), pos1:offset(0, 1, 0))) then
 			table.insert(results, pos1:offset(0, 1, 0))
-		elseif self:is_empty(pos1:offset(0, -1, 0), test_box)
+		elseif self.is_empty(pos1:offset(0, -1, 0), test_box)
 		and (not is_diagonal or creatura.line_of_sight(pos:offset(0, 1, 0), pos1:offset(0, -1, 0))) then
 			table.insert(results, pos1:offset(0, -1, 0))
 		end
@@ -193,7 +200,7 @@ end
 
 function pathfinder:get_neighbors_3d(pos)
 	local results = {}
-	for i, pos1 in ipairs(self:get_neighbor_grid(pos)) do
+	for i, pos1 in ipairs(self.get_neighbor_grid(pos)) do
 		for y = -1, 1 do
 			local is_diagonal = math.floor(i) == i
 			local npos = {x = pos1.x, y = pos1.y + y, z = pos1.z}
@@ -208,7 +215,7 @@ end
 
 function pathfinder:get_neighbors_in_liquid(pos)
 	local results = {}
-	for i, pos1 in ipairs(self:get_neighbor_grid(pos)) do
+	for i, pos1 in ipairs(self.get_neighbor_grid(pos)) do
 		for y = -1, 1 do
 			local is_diagonal = math.floor(i) == i
 			local npos = {x = pos1.x, y = pos1.y + y, z = pos1.z}
@@ -267,7 +274,7 @@ end
 
 -- Utils
 
-function pathfinder:hash_position(pos)
+function pathfinder.hash_position(pos)
 	return minetest.hash_node_position(pos)
 end
 
@@ -276,12 +283,12 @@ end
 function pathfinder:reconstruct_path()
 	self.path = {}
 	local current = self.current
-	local current_hash = self:hash_position(current.pos)
+	local current_hash = self.hash_position(current.pos)
 
 	while self.came_from[current_hash] do
 		table.insert(self.path, 1, current.pos)
 		current = self.came_from[current_hash]
-		current_hash = self:hash_position(current.pos)
+		current_hash = self.hash_position(current.pos)
 	end
 	table.insert(self.path, 1, self.start_pos)
 
@@ -308,7 +315,7 @@ function pathfinder:a_star_step()
 			return nil -- no path
 		end
 
-		local current_hash = self:hash_position(current.pos)
+		local current_hash = self.hash_position(current.pos)
 		if not closed_set[current_hash] then
 			if current.pos.x == self.target_pos.x and current.pos.z == self.target_pos.z then
 				--self.bm_time = (self.bm_time or 0) + minetest.get_us_time() - us
@@ -318,7 +325,7 @@ function pathfinder:a_star_step()
 			end
 
 			for _, next_pos in ipairs(self:get_neighbors(current.pos)) do
-				local next_hash = self:hash_position(next_pos)
+				local next_hash = self.hash_position(next_pos)
 				if not closed_set[next_hash] then
 					local new_node = {
 						pos = next_pos,
@@ -326,10 +333,10 @@ function pathfinder:a_star_step()
 						f_cost = 0
 					}
 
-					local temp_g_score = current.g_score + self:get_heuristic_cost(current.pos, next_pos)
+					local temp_g_score = current.g_score + self.get_heuristic_cost(current.pos, next_pos)
 
 					if not g_score[next_hash] or temp_g_score < g_score[next_hash] then
-						new_node.f_cost = temp_g_score + self:get_heuristic_cost(next_pos, self.target_pos)
+						new_node.f_cost = temp_g_score + self.get_heuristic_cost(next_pos, self.target_pos)
 						new_node.g_score = temp_g_score
 						g_score[next_hash] = temp_g_score
 
@@ -360,11 +367,16 @@ function pathfinder:update()
 			self.recalculate_timer = 10
 			self.path = {}
 		end
-		return
+		return true
 	end
-	if not self.target_pos or not self.target_pos.x then return end
 
-	self:a_star_step()
+	if not self.target_pos
+	or not self.target_pos.x then
+		return false
+	else
+		self:a_star_step()
+		return true
+	end
 end
 
 return pathfinder

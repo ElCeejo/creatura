@@ -5,20 +5,26 @@
 local pi = math.pi
 local random = math.random
 
-local vec_dist = vector.distance
+local vec_dist, vec_offset = vector.distance, vector.offset
 
 local vec_raise = function(v, n)
-	return vector.offset(v, 0, n, 0)
+	return vec_offset(v, 0, n, 0)
 end
 
+function creatura.radians_difference_abs(a, b)
+	return math.abs(math.atan2(math.sin(b - a), math.cos(b - a)))
+end
 
 function creatura.lerp(a, b, w)
 	return a * (1 - w) + b * w
 end
 
 function creatura.get_yaw_to_pos(pos1, pos2)
-	local x = pos2.x - pos1.x
-	local z = pos2.z - pos1.z
+	local p1_x, p1_z = pos1.x, pos1.z
+	local p2_x, p2_z = pos2.x, pos2.z
+
+	local x = p2_x - p1_x
+	local z = p2_z - p1_z
 	return math.atan2(z, x) - pi / 2
 end
 
@@ -29,6 +35,14 @@ function creatura.is_value_in_table(tbl, val)
 		end
 	end
 	return false
+end
+
+function creatura.get_squared_dist(pos1, pos2)
+    local dx = pos1.x - pos2.x
+    local dy = pos1.y - pos2.y
+    local dz = pos1.z - pos2.z
+
+    return dx * dx + dy * dy + dz * dz
 end
 
 -- Debugging
@@ -49,6 +63,35 @@ end
 --
 --
 
+function creatura.get_neighbor_grid(pos)
+	local p1 = vector.new(pos)
+	return {
+		p1:add({x = 1, y = 0, z = 0}),
+		p1:add({x = 1, y = 0, z = 1}),
+		p1:add({x = 0, y = 0, z = 1}),
+		p1:add({x = -1, y = 0, z = 1}),
+		p1:add({x = -1, y = 0, z = 0}),
+		p1:add({x = -1, y = 0, z = -1}),
+		p1:add({x = 0, y = 0, z = -1}),
+		p1:add({x = 1, y = 0, z = -1})
+	}
+end
+
+function creatura.get_neighbor_grid_3d(pos)
+	local p1 = vector.new(pos)
+	return {
+		p1,
+		p1:add({x = 1, y = 0, z = 0}),
+		p1:add({x = 1, y = 0, z = 1}),
+		p1:add({x = 0, y = 0, z = 1}),
+		p1:add({x = -1, y = 0, z = 1}),
+		p1:add({x = -1, y = 0, z = 0}),
+		p1:add({x = -1, y = 0, z = -1}),
+		p1:add({x = 0, y = 0, z = -1}),
+		p1:add({x = 1, y = 0, z = -1})
+	}
+end
+
 function creatura.get_wander_pos(pos, range)
 	local random_offset = {
 		x = (random() * 2-1) * range,
@@ -58,9 +101,9 @@ function creatura.get_wander_pos(pos, range)
 	local wander_pos = vector.add(pos, random_offset)
 
 	if creatura.is_walkable(wander_pos) then
-		wander_pos:offset(0, 1, 0)
+		vec_offset(wander_pos, 0, 1, 0)
 	elseif not creatura.is_on_ground(wander_pos) then
-		wander_pos:offset(0, -1, 0)
+		vec_offset(wander_pos, 0, -1, 0)
 	end
 
 	if creatura.is_walkable(wander_pos)
@@ -205,28 +248,30 @@ local function is_node_traversable(pos)
     return true
 end
 
-function creatura.is_pos_empty(pos, box)
+function creatura.is_pos_empty(pos, box, liquid)
 	--[[if math.abs(box[1]) + math.abs(box[4]) <= 1
 	and box[5] <= 1 then -- only check 1 node if box doesn't exceed 1 node in size
 		return is_node_traversable(pos)
 	end]]
 
 	local min_p = {
-		x = math.floor(pos.x + 0.5 + box[1]),
-		y = math.floor(pos.y + 0.5 + box[2]),
-		z = math.floor(pos.z + 0.5 + box[3])
+		x = pos.x + (box[1] + 0.01),
+		y = pos.y + (box[2] + 0.01),
+		z = pos.z + (box[3] + 0.01)
 	}
 
 	local max_p = {
-		x = math.floor(pos.x + 0.5 + box[4]),
-		y = math.floor(pos.y + 0.5 + box[5]),
-		z = math.floor(pos.z + 0.5 + box[6])
+		x = pos.x + (box[4] - 0.01),
+		y = pos.y + (box[5] - 0.01),
+		z = pos.z + (box[6] - 0.01)
 	}
 
 	for x = min_p.x, max_p.x do
 		for y = min_p.y, max_p.y do
 			for z = min_p.z, max_p.z do
-				if not is_node_traversable(vector.new(x, y, z)) then
+				if (liquid and not creatura.is_liquid(vector.new(x, y, z)))
+				or not is_node_traversable(vector.new(x, y, z)) then
+					--creatura.particle(vector.new(x, y, z))
 					return false
 				end
 			end
@@ -265,6 +310,15 @@ function creatura.is_pos_empty_in_liquid(pos, box)
 	end
 
 	return true
+end
+
+function creatura.translate_to_position(pos)
+	if type(pos) == "userdata" then
+		if pos:is_valid() then return pos:get_pos() end
+		return vector.zero()
+	end
+
+	return pos
 end
 
 -- DEPRECATED
