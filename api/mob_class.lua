@@ -210,11 +210,12 @@ function mob_class:set_texture_table(texture_table)
 		reset_texture_no = true
 	end
 
-	self._custom_texture_table = texture_table
+	self._custom_texture_table = table.copy(texture_table)
 	self.textures = self._custom_texture_table
 	if reset_texture_no then
-		self.texture_no = math.random(#self.textures)
+		self.texture_no = random(#self.textures)
 	end
+
 
 	self.object:set_properties({
 		textures = {self.textures[self.texture_no]}
@@ -230,7 +231,7 @@ function mob_class:set_mesh(new_mesh)
 
 		if not mesh_no
 		or not meshes[mesh_no] then -- Pick a new index if the given index is invalid
-			mesh_no = math.random(#meshes)
+			mesh_no = random(#meshes)
 			self.mesh_no = mesh_no
 		end
 
@@ -250,6 +251,74 @@ function mob_class:set_mesh(new_mesh)
 		mesh = new_mesh
 	})
 	self.mesh_no = 1
+end
+
+-- Mob Drops
+
+function mob_class:get_drops()
+	local loot = self.loot_table
+	if not loot or not loot.items then return {} end
+
+	local drops = {}
+	local item_counts = {}
+	local rolls = random(loot.min_rolls or 1, loot.max_rolls or #loot.items)
+
+	for _ = 1, rolls do
+		local total_weight = 0
+		local available_items = {}
+
+		for _, item in ipairs(loot.items) do
+			local count = item_counts[item.name] or 0
+			if not item.max_rolls or count < item.max_rolls then
+				total_weight = total_weight + item.weight
+				table.insert(available_items, item)
+			end
+		end
+
+		if total_weight <= 0 then break end
+
+		local roll = random(1, total_weight)
+		local current = 0
+
+		for _, item in ipairs(available_items) do
+			current = current + item.weight
+			if roll <= current then
+				local min_amount = item.min_amount or 1
+				local max_amount = item.max_amount or 1
+
+				table.insert(drops, ItemStack(item.name .. " " .. random(min_amount, max_amount)))
+				item_counts[item.name] = (item_counts[item.name] or 0) + 1
+				break
+			end
+		end
+	end
+	return drops
+end
+
+function mob_class:drop_item(itemstack)
+	local pos = self.object:get_pos()
+	if not pos then return end
+	local item = minetest.add_item(pos, itemstack)
+
+	if item then
+		item:add_velocity({
+			x = random(-2, 2),
+			y = 1.5,
+			z = random(-2, 2)
+		})
+
+		return true
+	end
+	return false
+end
+
+function mob_class:drop_loot(loot_table)
+	local drops = loot_table or self:get_drops()
+	if not drops or type(drops) ~= "table" or #drops < 1 then return end
+
+	for _, itemstack in ipairs(drops) do
+		self:drop_item(itemstack)
+	end
 end
 
 -- Damage
@@ -283,10 +352,14 @@ function mob_class:apply_knockback(dir, power)
 end
 
 -- Protection and Taming
-function mob_class:set_protection()
-	self.protected = true
+function mob_class:disable_despawning()
 	self.despawn_after = self:memorize("despawn_after", false)
 	self._despawn = self:memorize("_despawn", false)
+end
+
+function mob_class:set_protection()
+	self.protected = true
+	self:disable_despawning()
 end
 
 function mob_class:set_owner(player)
@@ -299,6 +372,9 @@ function mob_class:is_tempted_by(stack)
 	if not stack then return false end
 	local stack_name = stack
 	if type(stack) == "userdata" then stack_name = stack:get_name() end
+	if type(self.tempted_by) == "string" then
+		return stack_name == self.tempted_by
+	end
 
 	for _, tempted_by in ipairs(self.tempted_by) do
 		if stack_name == tempted_by
@@ -421,8 +497,8 @@ function mob_class:get_staticdata()
 	data._custom_texture_table = self._custom_texture_table
 	data.textures = self._custom_texture_table or self.textures
 	if not #self.textures then self.texture_no = 1 end
-	data.texture_no = self.texture_no or math.random(#self.textures)
-	data.mesh_no = self.mesh_no or (self.meshes and math.random(#self.meshes))
+	data.texture_no = self.texture_no or random(#self.textures)
+	data.mesh_no = self.mesh_no or (self.meshes and random(#self.meshes))
 
 	data.is_child = self.is_child or false
 	data.time_until_grown = self.time_until_grown or 0
@@ -464,10 +540,17 @@ function mob_class:on_activate(staticdata, dtime)
 		self:set_mesh(self.mesh_no)
 	end
 
-	if self.textures[self.texture_no] then
-		self.object:set_properties({
-			textures = {self.textures[self.texture_no]}
-		})
+	local textures = self.textures[self.texture_no]
+	if textures then
+		if type(textures) == "table" then
+			self.object:set_properties({
+				textures = textures
+			})
+		else
+			self.object:set_properties({
+				textures = {textures}
+			})
+		end
 	end
 
 	self.width, self.height = self:get_hitbox_scale()
@@ -556,7 +639,7 @@ function mob_class:on_step(dtime, moveresult)
 	if self.sounds
 	and self:timer(5)
 	and self.sounds["random"]
-	and math.random(3) == 1 then
+	and random(3) == 1 then
 		self:play_sound("random")
 	end
 
@@ -576,6 +659,7 @@ end
 -- On Punch
 function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, dir, _damage)
 	if not puncher then return end
+	self.last_puncher = puncher
 
 	-- Get info from player and the players tool
 	local tool
@@ -622,7 +706,7 @@ function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, di
 
 	-- Play sounds
 	if (time_from_last_punch or 0) > 0.5 then
-		if math.random(2) < 2 then
+		if random(2) < 2 then
 			self:play_sound("hurt")
 		end
 		self:play_sound("hit")
@@ -768,6 +852,20 @@ function creatura.register_mob(name, def)
 		end
 
 		if self._death_timer <= 0 then
+			local pos = self.stand_pos
+			creatura.particle_spawner("float", {
+				minpos = {x = pos.x - 0.1, y = pos.y, z = pos.z - 0.1},
+				maxpos = {x = pos.x + 0.1, y = pos.y + 0.1, z = pos.z + 0.1},
+				texture = "creatura_smoke_particle.png",
+				animation = {
+					type = 'vertical_frames',
+					aspect_w = 4,
+					aspect_h = 4,
+					length = 1,
+				},
+				glow = 1
+			})
+			self:drop_loot()
 			return true
 		end
 	end
