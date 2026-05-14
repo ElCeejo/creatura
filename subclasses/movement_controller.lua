@@ -1,8 +1,6 @@
 local movement_controller = {}
 movement_controller.__index = movement_controller
 
-local boid_handler = dofile(creatura.path_subclass .. "/boid_handler.lua")
-
 -- Create new instance
 function movement_controller:new(parent, spec)
 	local parent_entity = parent and parent:get_luaentity()
@@ -18,8 +16,8 @@ function movement_controller:new(parent, spec)
 	new_controller.target_yaw = yaw
 
 	-- Defaults
-	new_controller.movement_type = new_controller.movement_type or "ground"
 	new_controller.speed = new_controller.speed or parent_entity.speed
+	new_controller.can_jump_fences = parent_entity.can_jump_fences or false
 
 	return setmetatable(new_controller, self)
 end
@@ -27,6 +25,7 @@ end
 local abs = math.abs
 local min = math.min
 local pi = math.pi
+local sqrt = math.sqrt
 
 local gravity = -9.8
 local friction = 0.8
@@ -41,32 +40,26 @@ local function interpolate_radians(a, b, w)
 	return math.atan2(sn, cs)
 end
 
-local function lerp(a, b, t)
-	return a + (b - a) * t
-end
-
-local function get_yaw_to_pos(pos1, pos2)
-	local x = pos2.x - pos1.x
-	local z = pos2.z - pos1.z
-	return math.atan2(z, x) - pi / 2
-end
-
 -- Return parent objects luaentity
 function movement_controller:parent_entity()
 	return self.parent and self.parent:get_luaentity()
 end
 
--- Intitate boid handler
-function movement_controller:initiate_boids(spec)
-	self.is_boid = true
-	self.boid_tick = true
-	self.boid_handler = boid_handler:new(self.parent, spec)
-end
+function movement_controller:get_parent_attribute(attribute)
+	if type("attribute") ~= "string" then return end
 
--- Remove boid handler
-function movement_controller:end_boids()
-	self.is_boid = false
-	self.boid_handler = nil
+	local parent = self.parent
+	if not parent:is_valid() then return end
+
+	if attribute == "yaw" then return parent:get_yaw() end
+	if attribute == "pos" then return parent:get_pos() end
+	if attribute == "vel" then return parent:get_velocity() end
+	if attribute == "accel" then return parent:get_acceleration() end
+
+	local entity = parent and parent:get_luaentity()
+	if not entity then return end
+
+	return entity[attribute]
 end
 
 -- Directly set velocity in current look dir
@@ -80,6 +73,14 @@ function movement_controller:set_forward_velocity(speed)
 	self.parent:set_velocity(vel)
 end
 
+function movement_controller:set_vertical_velocity(speed)
+	local vel = self.parent:get_velocity()
+
+	vel.y = speed
+
+	self.parent:set_velocity(vel)
+end
+
 -- Set desired position and speed
 function movement_controller:set_target(pos, speed)
 	if self.state == "jump" then return end
@@ -89,6 +90,15 @@ function movement_controller:set_target(pos, speed)
 	self.speed = speed or self.speed
 
 	self.state = "move"
+end
+
+function movement_controller:set_look_target(pos)
+	if type(pos) == "userdata" then pos = pos:get_pos() end
+	self.look_target_pos = pos
+end
+
+function movement_controller:unset_look_target()
+	self.look_target_pos = nil
 end
 
 -- Stop all movement
@@ -123,121 +133,52 @@ function movement_controller:jump(_yaw, _pitch, power)
 	self.state = "jump"
 end
 
--- Turn to specified angle
-function movement_controller:turn(target_yaw)
-	self.target_yaw = target_yaw
-end
+function movement_controller:check_for_jumpable_obstacle(yaw)
+	local parent_entity = self:parent_entity()
+	if not parent_entity.touching_ground then return false end
 
--- Default movement calculation
-function movement_controller:ground_move(obj, tgt_pos, sp) -- TODO: Rename to get_walk_vector
-	local target_pos = tgt_pos or self.target_pos
-	local speed = sp or self.speed
-
-	local entity = obj:get_luaentity()
-	local pos = obj:get_pos()
-	local yaw = self.current_yaw
-	local vel = self.current_vel
-	local target_yaw = get_yaw_to_pos(pos, target_pos)
-
-	local yaw_diff = math.max(0, radians_difference_abs(yaw, target_yaw) - (entity.turn_rate * entity.dtime))
-	--local speed_mod = lerp(math.cos(yaw_diff), 1, 0.1)
-	local speed_mod = math.max(0, math.cos(yaw_diff)) -- Slow down when facing away from target
-
-	vel.x = -math.sin(yaw) * speed * speed_mod
-	vel.z = math.cos(yaw) * speed * speed_mod
-
-	return vel, target_yaw
-end
-
-function movement_controller:flying_move(obj, tgt_pos, sp) -- TODO: Rename to get_fly_vector
-	local target_pos = tgt_pos or self.target_pos
-	local speed = sp or self.speed
-
-	local entity = obj:get_luaentity()
-	local pos = obj:get_pos()
-	local yaw = self.current_yaw
-	local vel = self.current_vel
-
-	local target_dir = vector.normalize(vector.direction(pos, target_pos))
-	local target_yaw = get_yaw_to_pos(pos, target_pos)
-
-	local yaw_diff = radians_difference_abs(yaw, target_yaw)
-	local speed_mod = math.max(0.2, math.cos(yaw_diff))
-
-	if self.is_boid then
-		target_dir = vector.add(target_dir, self.boid_handler:get_direction())
-	end
-
-	local desired_vel = {
-		x = target_dir.x * speed * speed_mod,
-		y = target_dir.y * speed * 0.7,
-		z = target_dir.z * speed * speed_mod,
+	local pos = self.parent:get_pos()
+	local hitbox_edge = creatura.get_hitbox_edge(yaw, parent_entity.width)
+	local obstacle_pos = {
+		x = pos.x + hitbox_edge.x + -math.sin(yaw) * 0.2,
+		y = pos.y + 0.01,
+		z = pos.z + hitbox_edge.z + math.cos(yaw) * 0.2
 	}
 
-	vel.x = lerp(vel.x, desired_vel.x, 0.5)
-	vel.y = lerp(vel.y, desired_vel.y, 0.5)
-	vel.z = lerp(vel.z, desired_vel.z, 0.5)
-
-	if entity.in_liquid then
-		entity.physics_controller:enable_gravity()
-		vel.x = vel.x * 0.5
-		vel.y = 1
-		vel.z = vel.z * 0.5
-	else
-		entity.physics_controller:disable_gravity()
+	if not self.can_jump_fences
+	and creatura.is_fence(obstacle_pos) then
+		return false
 	end
 
-	return vel, target_yaw
+	if creatura.is_walkable(obstacle_pos)
+	and not creatura.is_walkable(vector.add(obstacle_pos, {x=0,y=1,z=0})) then
+		return true
+	end
+
+	return false
 end
 
-function movement_controller:swimming_move(obj, tgt_pos, sp) -- TODO: Rename to get_swim_vector
-	local target_pos = tgt_pos or self.target_pos
-	local speed = sp or self.speed
+function movement_controller:calculate_jump_power()
+	local parent_entity = self:parent_entity()
 
-	local entity = obj:get_luaentity()
-	local pos = obj:get_pos()
-	local yaw = self.current_yaw
-	local vel = self.current_vel
-	local target_dir = vector.direction(pos, target_pos)
-	local target_yaw = get_yaw_to_pos(pos, target_pos)
-
-	local yaw_diff = radians_difference_abs(yaw, target_yaw)
-	local speed_mod = math.max(0.6, math.cos(yaw_diff))
-
-	if self.is_boid then
-		local boid_dir = self.boid_handler:get_direction()
-		if vector.length(boid_dir) ~= 0 then
-			target_dir = vector.add(target_dir, boid_dir):normalize()
-			target_yaw = minetest.dir_to_yaw(target_dir)
-		end
+	local mob_gravity = 9.8
+	if parent_entity.physics_controller then
+		mob_gravity = abs(parent_entity.physics_controller.gravity)
 	end
 
-	vel.z = math.cos(yaw) * speed * speed_mod
-	vel.y = target_dir.y * speed * speed_mod
-	vel.x = -math.sin(yaw) * speed * speed_mod
-
-	if entity.physics_controller then
-		if entity.in_liquid then
-			entity.physics_controller:disable_gravity()
-		else
-			entity.physics_controller:enable_gravity()
-			vel.x = vel.x * 0.5
-			vel.y = -1
-			vel.z = vel.z * 0.5
-		end
-	end
-
-	return vel, target_yaw
+	return mob_gravity * sqrt((parent_entity.jump_height) / mob_gravity)
 end
 
-function movement_controller:move(object, target_pos, speed)
-	if self.movement_type == "ground" then
-		return self:ground_move(object, target_pos, speed)
-	elseif self.movement_type == "fly" then
-		return self:flying_move(object, target_pos, speed)
-	elseif self.movement_type == "swim" then
-		return self:swimming_move(object, target_pos, speed)
+-- Turn to specified angle
+function movement_controller:turn(target_yaw)
+	local yaw = target_yaw
+	if type(target_yaw) ~= "number" then
+		local target_pos = creatura.translate_to_position(target_yaw)
+
+		yaw = minetest.dir_to_yaw(vector.direction(self.parent:get_pos(), target_pos))
 	end
+
+	self.target_yaw = yaw
 end
 
 -- Update all movement on every server-step
@@ -251,12 +192,18 @@ function movement_controller:update()
 
 	local parent_entity = self:parent_entity()
 
-	-- Cached for use in self:move
+	-- Cached for use in yaw/velocity calculation
 	self.current_yaw = yaw
 	self.current_vel = vel
 
 	local target_yaw
 	local target_vel
+
+	-- Motion Driver info
+	local driver_name = self:get_parent_attribute("motion_driver") or "creatura:default_walk_driver"
+	local driver = creatura.registered_motion_drivers[driver_name]
+
+	if not driver then return end -- TODO: Error?
 
 	-- Moving
 	if self.state == "jump" then
@@ -264,41 +211,38 @@ function movement_controller:update()
 		and vel.y < 0.1 then
 			self.state = "idle"
 			vel.x = 0
-			vel.y = (self.is_flying and 0) or vel.y
 			vel.z = 0
 		end
 	elseif self.state == "move" then
-		target_vel, target_yaw = self:move(self.parent, self.target_pos, self.speed)
+		target_vel = driver.calculate_velocity(self, parent_entity)
+		if not self.look_target_pos then
+			target_yaw =  driver.calculate_yaw(self, parent_entity)
+		end
+
+		if parent_entity.stepheight < 1.1
+		and parent_entity.stepheight > 0
+		and self:check_for_jumpable_obstacle(yaw) then
+			self:jump(nil, nil, self:calculate_jump_power(parent_entity.jump_height))
+			vel = parent:get_velocity()
+			target_vel = nil
+			target_yaw = nil
+		end
 
 		self.state = "idle"
-		--entity:add_diagnostic("target_yaw", target_yaw)
-
-		if parent_entity.stepheight < 1.1 then
-			local hitbox_edge = creatura.get_hitbox_edge(yaw, parent_entity.width)
-			local check_pos = {
-				x = pos.x + hitbox_edge.x + -math.sin(yaw),
-				y = pos.y,
-				z = pos.z + hitbox_edge.z + math.cos(yaw),
-			}
-
-			if self.movement_type == "ground"
-			and creatura.is_walkable(check_pos) then
-				self:jump()
-				vel = parent:get_velocity()
-				target_vel = nil
-			end
-		end
 	else
 		self.state = "idle"
 
 		if parent_entity.touching_ground then
 			vel.x = vel.x * friction
-			vel.y = vel.y
 			vel.z = vel.z * friction
-		elseif self.movement_type == "fly" then
+		else
 			vel.x = vel.x * 0.7
-			vel.y = vel.y * 0.7
 			vel.z = vel.z * 0.7
+
+			--[[local accel = parent:get_acceleration()
+			if accel and accel.y == 0 then
+				vel.y = vel.y * 0.7
+			end]]
 		end
 	end
 

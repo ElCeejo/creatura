@@ -38,11 +38,11 @@ function creatura.is_value_in_table(tbl, val)
 end
 
 function creatura.get_squared_dist(pos1, pos2)
-    local dx = pos1.x - pos2.x
-    local dy = pos1.y - pos2.y
-    local dz = pos1.z - pos2.z
+	local dx = pos1.x - pos2.x
+	local dy = pos1.y - pos2.y
+	local dz = pos1.z - pos2.z
 
-    return dx * dx + dy * dy + dz * dz
+	return dx * dx + dy * dy + dz * dz
 end
 
 -- Debugging
@@ -92,7 +92,26 @@ function creatura.get_neighbor_grid_3d(pos)
 	}
 end
 
-function creatura.get_wander_pos(pos, range)
+local function is_pos_reachable(current_pos, target_pos)
+	local pos1 = vector.round(current_pos)
+	local pos2 = vector.round(target_pos)
+
+	local dir = vector.direction(pos1, pos2)
+	local dist = vector.distance(pos1, pos2)
+
+	for _ = 1, math.ceil(dist) do
+		pos1 = vector.add(pos1, vector.round(dir))
+
+		if creatura.is_walkable(pos1) then
+			--creatura.particle(pos1, 5)
+			return false
+		end
+	end
+
+	return true
+end
+
+function creatura.get_wander_pos(pos, range, round)
 	local random_offset = {
 		x = (random() * 2-1) * range,
 		y = 0,
@@ -111,7 +130,11 @@ function creatura.get_wander_pos(pos, range)
 		return pos
 	end
 
-	return wander_pos
+	if not is_pos_reachable(pos, wander_pos) then
+		return pos
+	end
+
+	return (round and vector.round(wander_pos)) or wander_pos
 end
 
 function creatura.get_hitbox_edge(yaw, width)
@@ -167,6 +190,24 @@ function creatura.get_node_height_from_def(name)
 		end
 	else
 		return 1
+	end
+end
+
+function creatura.is_fence(pos)
+	local node = minetest.get_node_or_nil(pos)
+	if not node or not node.name then return false end
+
+	if minetest.get_item_group(node.name, "gate") > 0 then
+		if string.find(node.name, "open") then
+			return false
+		else
+			return true
+		end
+	end
+
+	if minetest.get_item_group(node.name, "fence") > 0
+	or minetest.get_item_group(node.name, "wall") > 0 then
+		return true
 	end
 end
 
@@ -232,20 +273,25 @@ end
 -- Check for dangerous fall
 
 function creatura.is_pos_above_fall(pos, max_fall)
-	local fall_check = core.line_of_sight(pos, vector.offset(pos, 0, -max_fall, 0))
-	if fall_check then return true end
+	local _, fall_pos = core.line_of_sight(pos, vector.offset(pos, 0, -max_fall, 0))
+
+	if not fall_pos then
+		return true
+	end
+
+	return false, fall_pos
 end
 
 -- Check for enough clear space to fit a collisionbox
 
 local function is_node_traversable(pos)
-    local node = core.get_node_or_nil(pos)
-    if not node or node.name == "ignore" then return false end
+	local node = core.get_node_or_nil(pos)
+	if not node or node.name == "ignore" then return false end
 
-    local def = core.registered_nodes[node.name]
-    if not def or def.walkable then return false end -- liquidtype ~= "none" to check for water?
+	local def = core.registered_nodes[node.name]
+	if not def or def.walkable then return false end -- liquidtype ~= "none" to check for water?
 
-    return true
+	return true
 end
 
 function creatura.is_pos_empty(pos, box, liquid)
@@ -321,6 +367,16 @@ function creatura.translate_to_position(pos)
 	return pos
 end
 
+-- Vectors
+
+function creatura.vector_lerp(v1, v2, w)
+	return {
+		x = v1.x + (v2.x - v1.x) * w,
+		y = v1.y + (v2.y - v1.y) * w,
+		z = v1.z + (v2.z - v1.z) * w
+	}
+end
+
 -- DEPRECATED
 
 function creatura.fast_ray_sight(pos1, pos2, water)
@@ -374,4 +430,60 @@ function creatura.get_ground_level(pos, range)
 		end
 	end
 	return above
+end
+
+-- Quick Particles
+
+local particle_spawners = {
+	["splash"] = {
+		amount = 6,
+		time = 0.2,
+		minacc = {x = 0, y = -9.81, z = 0},
+		maxacc = {x = 0, y = -9.81, z = 0},
+		minvel = {x = -1, y = 2, z = -1},
+		maxvel = {x = 1, y = 5, z = 1},
+		minsize = 1,
+		maxsize = 2,
+		collisiondetection = true
+	},
+	["float"] = {
+		amount = 8,
+		time = 0.25,
+		minacc = {x = 0, y = 2, z = 0},
+		maxacc = {x = 0, y = 3, z = 0},
+		minvel = {x = random(-1, 1), y = -0.25, z = random(-1, 1)},
+		maxvel = {x = random(-2, 2), y = -0.25, z = random(-2, 2)},
+		minsize = 4,
+		maxsize = 4,
+		collisiondetection = true
+	},
+}
+
+function creatura.particle_spawner(name, params)
+	if not name or not particle_spawners[name] then
+		core.log("warning", "[Creatura Particle Spawner] " .. name .. " is not a valid preset.")
+		return
+	end
+	if not params then
+		core.log("warning", "[Creatura Particle Spawner] no params given.")
+		return
+	end
+	if not params.minpos
+	or not params.maxpos then
+		core.log("warning", "[Creatura Particle Spawner] no position given.")
+		return
+	end
+	if not params.texture then
+		core.log("warning", "[Creatura Particle Spawner] no texture given.")
+		return
+	end
+
+	local particlespawner = table.copy(particle_spawners[name])
+
+	for k, v in pairs(params) do
+		particlespawner[k] = v
+	end
+
+	core.add_particlespawner(particlespawner)
+	return particlespawner
 end

@@ -16,6 +16,7 @@ function animation_controller:new(object)
 		is_playing = false,
 		is_looping = false,
 
+		frame_actions = {},
 		end_action = {}
 	}
 
@@ -43,6 +44,17 @@ function animation_controller:update()
 	end
 
 	self.current_frame = self.current_frame + (self.animation_speed * parent_entity.dtime)
+
+	local i = 1
+    while i <= #self.frame_actions do
+        local action = self.frame_actions[i]
+        if self.current_frame >= action.frame then
+            if action.action then action.action(unpack(action.args)) end
+            table.remove(self.frame_actions, i) -- Remove so it only fires once
+        else
+            i = i + 1
+        end
+    end
 
 	if self.on_step
 	and self.is_playing then
@@ -121,6 +133,14 @@ function animation_controller:end_animation()
 	self.is_playing = false
 	self.is_looping = false
 	self.end_action = {}
+end
+
+function animation_controller:on_frame(frame, func, ...)
+    table.insert(self.frame_actions, {
+        frame = frame,
+        action = func,
+        args = { ... }
+    })
 end
 
 -- Perform an action when the animation ends

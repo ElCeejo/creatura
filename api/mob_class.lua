@@ -5,7 +5,6 @@
 -- Subclasses
 
 local path_subclass = creatura.path_subclass
-creatura.a_star_pathfinder = dofile(path_subclass .. "/pathfinder.lua")
 
 local animation_controller = dofile(path_subclass .. "/animation_controller.lua")
 local physics_controller = dofile(path_subclass .. "/physics_controller.lua")
@@ -129,6 +128,100 @@ function mob_class:calculate_mob_collision()
 			object:add_velocity(vel)
 		end
 	end
+end
+
+-- Obstacle Avoidance
+
+local function is_node_traversable(pos)
+	local node = core.get_node_or_nil(pos)
+	if not node or node.name == "ignore" then return false end
+
+	local def = core.registered_nodes[node.name]
+	if not def or def.walkable then return false end -- liquidtype ~= "none" to check for water?
+
+	return true
+end
+
+local function can_large_hitbox_fit(self, target_pos)
+	local box = self.collisionbox -- todo: get box from properties to insure accuracy
+
+	local min_p = {
+		x = target_pos.x + (box[1] + 0.01),
+		y = target_pos.y + (box[2] + 0.01),
+		z = target_pos.z + (box[3] + 0.01)
+	}
+
+	local max_p = {
+		x = target_pos.x + (box[4] - 0.01),
+		y = target_pos.y + (box[5] - 0.01),
+		z = target_pos.z + (box[6] - 0.01)
+	}
+
+
+	for x = min_p.x, max_p.x do
+		for z = min_p.z, max_p.z do
+			local max_y = max_p.y
+			local current_y = min_p.y
+
+			while current_y < max_y do
+				local check_pos = {x = x, y = current_y, z = z}
+
+				if not is_node_traversable(check_pos) then
+					if current_y == min_p.y then
+						max_y = max_y + math.floor(self.jump_height)
+					else
+						return false
+					end
+				end
+			end
+		end
+	end
+
+	return true
+end
+
+local function can_small_hitbox_fit(self, target_pos)
+	local pos = self.object:get_pos()
+	if not pos then return end
+
+	if not is_node_traversable(target_pos) then
+		local jump_height = math.floor(self.jump_height)
+
+		if jump_height < 1 then
+			return false
+		else
+			return is_node_traversable({
+				x = target_pos.x,
+				y = target_pos.y + jump_height,
+				z = target_pos.z
+			})
+		end
+	end
+
+	return true
+end
+
+function mob_class:is_pos_safe(pos)
+	local box = self.collisionbox or {-0.5, 0, -0.5, 0.5, 1, 0.5}
+
+	local space_check = can_large_hitbox_fit
+	if math.abs(box[1]) + math.abs(box[2]) < 1 then
+		space_check = can_small_hitbox_fit
+	end
+
+	if not space_check(self, pos) then
+		return false
+	end
+
+	if (self.max_fall or 0) > 0 then
+		local is_above_all = creatura.is_pos_above_fall(vector.round(pos), self.max_fall)
+
+		if is_above_all then
+			return false
+		end
+	end
+
+	return true
 end
 
 -- Sounds
@@ -368,6 +461,27 @@ function mob_class:set_owner(player)
 	self.owner = player
 end
 
+function mob_class:is_owner(target)
+	if not self.owner then return end
+	if not target then return end
+
+	if type(target) == "userdata" then
+		if target:is_player() then
+			target = target:get_player_name()
+		else
+			local entity = target:get_luaentity()
+
+			if entity
+			and entity.owner
+			and entity.owner == self.owner then
+				return true
+			end
+		end
+	end
+
+	return target == self.owner
+end
+
 function mob_class:is_tempted_by(stack)
 	if not stack then return false end
 	local stack_name = stack
@@ -421,6 +535,7 @@ end
 function mob_class:check_environment_damage()
 	local pos = self.object:get_pos()
 	if not pos then return end
+	pos.y = pos.y + 0.01
 
 	local node_at_pos = core.get_node(pos)
 
@@ -680,8 +795,6 @@ function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, di
 		damage = damage + val * clamp(damage_mod, 0, 1) * ((armor_groups[group] or 0) / 100.0)
 	end
 
-	self:play_sound("hit")
-
 	-- Apply damage
 	if damage > 0 then
 		local pos = self.object:get_pos()
@@ -705,12 +818,12 @@ function mob_class:on_punch(puncher, time_from_last_punch, tool_capabilities, di
 	end
 
 	-- Play sounds
-	if (time_from_last_punch or 0) > 0.5 then
+	--[[if (time_from_last_punch or 0) > 0.5 then
 		if random(2) < 2 then
 			self:play_sound("hurt")
 		end
 		self:play_sound("hit")
-	end
+	end]]
 
 	if self.on_hit then
 		self:on_hit(puncher, time_from_last_punch, tool_capabilities, dir, _damage)
@@ -782,6 +895,42 @@ function mob_class:has_reached_or_passed(pos2)
 	})
 
 	return (dir.x * to_dest.x + dir.z * to_dest.z) < 0
+end
+
+local abs = math.abs
+
+function mob_class:has_reached_pos(target_pos)
+	local pos = self.object:get_pos()
+	local vel = self.object:get_velocity() or {x = 0, y = 0, z = 0}
+	local controller = self.movement_controller
+
+	local vertical_threshold = 1
+	if controller
+	and controller.state == "jump" then
+		vertical_threshold = 2
+	end
+
+	local diff_y = target_pos.y - pos.y
+	if abs(diff_y) > vertical_threshold then return false end
+
+	local diff_x = target_pos.x - pos.x
+	local diff_z = target_pos.z - pos.z
+	local squared_dist = (diff_x * diff_x) + (diff_z * diff_z)
+	local speed = math.sqrt((vel.x * vel.x) + (vel.z * vel.z))
+
+	local dynamic_radius = math.min(0.56 + (speed * 0.15), 1.5)
+	if squared_dist <= (dynamic_radius * dynamic_radius) then
+		return true
+	end
+
+	if squared_dist < 4.0 and speed > 0.5 then
+		local dot = (diff_x * vel.x) + (diff_z * vel.z)
+		if dot <= 0 then
+			return true
+		end
+	end
+
+	return false
 end
 
 -- Utils

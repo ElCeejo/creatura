@@ -3,28 +3,25 @@
 local path_follower = {}
 path_follower.__index = path_follower
 
-local a_star_pathfinder = creatura.a_star_pathfinder
-
 -- Create new instance
+
 function path_follower:new(parent, spec)
 	local parent_entity = parent and parent:get_luaentity()
 	local pos = parent and parent:get_pos()
 
-	local proto = spec or {}
+	local new_path_follower = spec or {}
 
-	proto.parent = parent
-	proto.current_pos = pos
-	proto.target = false
-	proto.target_pos = {}
-	proto.path = {}
-	proto.stuck_timer = 2
-	proto.speed = parent_entity.speed
+	new_path_follower.parent = parent
+	new_path_follower.current_pos = pos
+	new_path_follower.target = false
+	new_path_follower.target_pos = {}
+	new_path_follower.path = {}
+	new_path_follower.stuck_timer = 2
+	new_path_follower.speed = parent_entity.speed
 
-	proto.navigation_type = "ground"
-	proto.pathfinder = a_star_pathfinder:new(parent)
-	proto.get_step = path_follower.get_ground_step
+	new_path_follower.pathfinder = creatura.pathfinder:get_ground_pathfinder(parent)
 
-	return setmetatable(proto, path_follower)
+	return setmetatable(new_path_follower, path_follower)
 end
 
 -- Utils
@@ -33,49 +30,31 @@ function path_follower:parent_entity()
 	return self.parent and self.parent:get_luaentity()
 end
 
+function path_follower:get_parent_attribute(attribute)
+	if type("attribute") ~= "string" then return end
+
+	local parent = self.parent
+	if not parent:is_valid() then return end
+
+	if attribute == "yaw" then return parent:get_yaw() end
+	if attribute == "pos" then return parent:get_pos() end
+	if attribute == "vel" then return parent:get_velocity() end
+	if attribute == "accel" then return parent:get_acceleration() end
+
+	local entity = parent and parent:get_luaentity()
+	if not entity then return end
+
+	return entity[attribute]
+end
+
 function path_follower:get_squared_dist(pos1, pos2)
 	local dx = pos1.x - pos2.x
 	local dy = pos1.y - pos2.y
 	local dz = pos1.z - pos2.z
 
+	if self:parent_entity().touching_ground and dy < 1 and dy > -1.5 then dy = 0 end
+
 	return dx * dx + dy * dy + dz * dz
-end
-
--- Set navigation state
-function path_follower:set_state(state)
-	local movement_control = self:parent_entity().movement_controller
-
-	if not state
-	or type(state) ~= "string"
-	or state == "ground" then
-		self.navigation_type = "ground"
-		movement_control.movement_type = "ground"
-		self.pathfinder = a_star_pathfinder:new(self.parent)
-		self.get_step = path_follower.get_ground_step
-		return
-	end
-
-	if state == "fly" then
-		self.navigation_type = "fly"
-		movement_control.movement_type = "fly"
-		self.pathfinder = a_star_pathfinder:new(self.parent, {
-			get_neighbors = a_star_pathfinder.get_neighbors_3d,
-			get_neighbor_grid = a_star_pathfinder.get_neighbor_grid_3d
-		})
-		self.get_step = path_follower.get_flight_step
-		return
-	end
-
-	if state == "swim" then
-		self.navigation_type = "swim"
-		movement_control.movement_type = "swim"
-		self.pathfinder = a_star_pathfinder:new(self.parent, {
-			get_neighbors = a_star_pathfinder.get_neighbors_3d,
-			get_neighbor_grid = a_star_pathfinder.get_neighbor_grid_3d
-		})
-		self.get_step = path_follower.get_swim_step
-		return
-	end
 end
 
 -- Set target
@@ -96,9 +75,11 @@ function path_follower:set_target(target, params)
 	end
 
 	self.is_active = true
-	self.stuck_timer = 2
+	self.stuck_timer = 0.5
 	self.speed = params.speed or self:parent_entity().speed
-	--self.timeout = params.timeout or 10
+	self.arrival_threshold = params.arrival_threshold or nil
+	self.get_step = params.get_step or nil
+
 	return true
 end
 
@@ -113,10 +94,11 @@ function path_follower:set_path_target(target, params, ...)
 end
 
 -- Stuck detection
+-- TODO: Make this actually work...
 
 function path_follower:on_stuck()
 	if self.path[1] then
-		local nudge_step = self:get_step(self.target_pos) -- This can sometimes help the mob wrap around corners
+		local nudge_step = self:get_step() -- This can sometimes help the mob wrap around corners
 
 		if nudge_step then
 			self.path[1] = nudge_step
@@ -124,6 +106,17 @@ function path_follower:on_stuck()
 			self.path = {}
 		end
 	end
+
+	--[[if self.path[1] then
+		if not self.stuck_flag then
+			local nudge_dir = vector.direction(self.current_pos, vector.round(self.path[1]))
+			self.path[1] = vector.add(self.path[1], vector.multiply(nudge_dir, 0.5))
+			self.stuck_flag = true
+		else
+			self.path = {}
+			self.stuck_flag = nil
+		end
+	end]]
 end
 
 function path_follower:tick_stuck_timer(dtime)
@@ -144,27 +137,22 @@ end
 
 -- Path following
 
-function path_follower:get_arrival_threshold(dtime)
-	return math.max(0.4, vector.length(self.parent:get_velocity()) * dtime * 1.5)
-end
-
-function path_follower:follow_path(dtime)
+function path_follower:follow_path()
 	if not self.path or #self.path < 1 then return end
 
 	local pos = self.current_pos
 	local next_pos = self.path[1]
 
-	local to_target = next_pos and vector.direction(pos, next_pos)
-	local dot = vector.dot(to_target, vector.normalize(self.parent:get_velocity()))
-
-	if self:get_squared_dist(pos, next_pos) < self:get_arrival_threshold(dtime)
-	or dot < 0 then
+	if self:parent_entity():has_reached_pos(next_pos) then
 		if #self.path > 1 then
 			next_pos = self.path[2]
 		end
 
 		table.remove(self.path, 1)
-		self:tick_stuck_timer() -- Reset stuck timer
+
+		if self:get_squared_dist(pos, self.last_pos) > 0.1 then
+			self:tick_stuck_timer() -- Reset stuck timer
+		end
 	end
 
 	local movement_controller = self:parent_entity().movement_controller
@@ -172,6 +160,7 @@ function path_follower:follow_path(dtime)
 end
 
 -- Update
+
 function path_follower:update()
 	local parent_entity = self:parent_entity()
 	if not parent_entity then return end
@@ -182,10 +171,14 @@ function path_follower:update()
 	local dtime = parent_entity.dtime
 
 	if self.target_pos and self.target_pos.x
-	and self:get_squared_dist(self.current_pos, self.target_pos) < self:get_arrival_threshold(dtime) then
+	and self:parent_entity():has_reached_pos(self.target_pos) then
 		self:stop()
 		return
 	end
+
+	--[[if self.target_pos and self.target_pos.x then
+		creatura.particle(self.target_pos)
+	end]]
 
 	local pathfinder = self.pathfinder
 	if pathfinder and pathfinder:update() then
@@ -196,8 +189,9 @@ function path_follower:update()
 	end
 
 	if #self.path == 0 then
-		local fallback_step = self:get_step(self.parent, self.target_pos)
+		local fallback_step = self:get_step()
 		if fallback_step then
+			--creatura.particle(fallback_step)
 			self.path = {fallback_step}
 		end
 	end
@@ -223,131 +217,26 @@ function path_follower:stop()
 		self.pathfinder:clear_path()
 	end
 
+	self.get_step = nil
+
 	parent_entity.movement_controller:stop()
 end
 
---
+-- Default Get Step
 
-local test_box = {-0.5, 0, -0.5, 0.5, 1, 0.5} -- For testing purposes, most mob hitboxes will be larger
+function path_follower:get_step()
+	local target_pos = self.target_pos
+	if not target_pos or not target_pos.x then return end
 
--- Get next step
-function path_follower:get_ground_step()
-	if not self.target_pos or not self.target_pos.x then return end
+    local pos = vector.round(self.current_pos)
+    pos.y = pos.y - 0.49
 
-	local pos = vector.new({
-		x = math.floor(self.current_pos.x + 0.5),
-		y = self.current_pos.y,
-		z = math.floor(self.current_pos.z + 0.5)
-	})
-	local valid_steps = {}
+	-- Check forward direction first
+	local target_dir = vector.direction(pos, target_pos):round()
+	if self:get_parent_attribute("accel").y ~= 0 then target_dir.y = 0 end
+	local target_step_pos = vector.add(pos, target_dir)
 
-	for _, pos1 in ipairs(creatura.get_neighbor_grid(pos)) do
-		local dir_x = math.abs(pos1.x - pos.x)
-		local dir_z = math.abs(pos1.z - pos.z)
-		local is_diagonal = dir_x > 0.1 and dir_z > 0.1
-
-		if creatura.is_pos_empty(pos1, test_box)
-		and (not is_diagonal or creatura.line_of_sight(pos, pos1)) then
-			valid_steps[#valid_steps + 1] = pos1
-		elseif creatura.is_pos_empty(pos1:offset(0, 1, 0), test_box)
-		and (not is_diagonal or creatura.line_of_sight(pos:offset(0, 1, 0), pos1:offset(0, 1, 0))) then
-			table.insert(valid_steps, pos1:offset(0, 1, 0))
-		elseif creatura.is_pos_empty(pos1:offset(0, -1, 0), test_box)
-		and (not is_diagonal or creatura.line_of_sight(pos:offset(0, 1, 0), pos1:offset(0, -1, 0))) then
-			table.insert(valid_steps, pos1:offset(0, -1, 0))
-		end
-	end
-
-	local output = table.copy(self.target_pos)
-	if #valid_steps < 1 then return output end
-
-	local cost = math.huge
-	for _, pos2 in ipairs(valid_steps) do
-		if self:get_squared_dist(pos2, self.target_pos) < cost then
-			cost = self:get_squared_dist(pos2, self.target_pos)
-			output = pos2
-		end
-	end
-	return output
-end
-
--- Get next step on 3 axis'
-function path_follower:get_flight_step()
-	if not self.target_pos or not self.target_pos.x then return end
-
-	local pos = vector.new({
-		x = math.floor(self.current_pos.x + 0.5),
-		y = self.current_pos.y,
-		z = math.floor(self.current_pos.z + 0.5)
-	})
-	local valid_steps = {}
-
-	for _, pos1 in ipairs(creatura.get_neighbor_grid_3d(pos)) do
-		for y = -1, 1 do
-			local dir_x = math.abs(pos1.x - pos.x)
-			local dir_z = math.abs(pos1.z - pos.z)
-			local is_diagonal = dir_x > 0.1 and dir_z > 0.1
-
-			local npos = {x = pos1.x, y = pos1.y + y, z = pos1.z}
-			if creatura.is_pos_empty(npos, test_box)
-			and (not is_diagonal or creatura.line_of_sight(pos, npos)) then
-				valid_steps[#valid_steps + 1] = npos
-			end
-		end
-	end
-
-	local output = table.copy(self.target_pos)
-	if #valid_steps < 1 then return output end
-
-	local cost = math.huge
-	for _, pos2 in ipairs(valid_steps) do
-		if self:get_squared_dist(pos2, self.target_pos) < cost then
-			cost = self:get_squared_dist(pos2, self.target_pos)
-			output = pos2
-		end
-	end
-
-	return output
-end
-
-
--- Get next step on 3 axis' while constrained to water
-function path_follower:get_swim_step()
-	if not self.target_pos or not self.target_pos.x then return end
-
-	local pos = vector.new({
-		x = math.floor(self.current_pos.x + 0.5),
-		y = self.current_pos.y,
-		z = math.floor(self.current_pos.z + 0.5)
-	})
-	local valid_steps = {}
-
-	for _, pos1 in ipairs(creatura.get_neighbor_grid_3d(pos)) do
-		for y = -1, 1 do
-			local dir_x = math.abs(pos1.x - pos.x)
-			local dir_z = math.abs(pos1.z - pos.z)
-			local is_diagonal = dir_x > 0.1 and dir_z > 0.1
-
-			local npos = {x = pos1.x, y = pos1.y + y, z = pos1.z}
-			if creatura.is_pos_empty_in_liquid(npos, test_box)
-			and (not is_diagonal or creatura.line_of_sight(pos, npos)) then
-				valid_steps[#valid_steps + 1] = npos
-			end
-		end
-	end
-
-	local output = table.copy(self.target_pos)
-	if #valid_steps < 1 then return output end
-
-	local cost = math.huge
-	for _, pos2 in ipairs(valid_steps) do
-		if self:get_squared_dist(pos2, self.target_pos) < cost then
-			cost = self:get_squared_dist(pos2, self.target_pos)
-			output = pos2
-		end
-	end
-
-	return output
+	return target_step_pos
 end
 
 return path_follower

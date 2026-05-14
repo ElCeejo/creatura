@@ -89,6 +89,7 @@ end
 -- Experimental predicate
 local default_predicate = {
 	check_sight = false,
+	check_creative = false,
 	include = {},
 	exclude = {},
 	get_score = function(_target_selector, target)
@@ -123,6 +124,12 @@ function target_selector:do_predicate(target, tentative_predicate)
 		if not creatura.line_of_sight(parent_pos, target_pos) then
 			return 0
 		end
+	end
+
+	if predicate.check_creative
+	and target:is_player()
+	and core.is_creative_enabled(target:get_player_name()) then
+		return 0
 	end
 
 	local target_name
@@ -168,9 +175,9 @@ function target_selector:do_predicate(target, tentative_predicate)
 
 	if predicate.get_score then
 		return predicate.get_score(self, target) or 0
+	else
+		return default_predicate.get_score(self, target)
 	end
-
-	return 0
 end
 
 -- Check validity of given target
@@ -186,7 +193,7 @@ function target_selector:is_target_valid(target)
 
 	local entity = target:get_luaentity()
 	if entity then
-		local health = entity.health or entity.hp
+		local health = entity.health or entity.hp or 0
 		if health <= 0 then return false end
 	end
 
@@ -244,7 +251,7 @@ function target_selector:find_targets(predicate)
 		if self:is_target_valid(target) then
 			local target_score = self:do_predicate(target, predicate)
 			if target_score > 0 then
-				table.insert(targets)
+				table.insert(targets, target)
 			end
 		else
 			self.objects[i] = nil

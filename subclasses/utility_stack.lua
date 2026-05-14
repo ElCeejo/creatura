@@ -46,6 +46,12 @@ function utility_stack:start_behavior(bh, sc, id, va)
 	if bh and bh.on_start then bh:on_start(self:parent_entity(), unpack(va)) end
 end
 
+-- Clear all behaviors from the stack
+function utility_stack:clear_behaviors()
+	self:end_behavior()
+	self.stack = {}
+end
+
 -- Perform current behavior every server-step, pick out a new behavior every second or if no behavior is running
 function utility_stack:update()
 	local parent_entity = self:parent_entity()

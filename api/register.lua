@@ -7,19 +7,19 @@
 creatura.registered_behaviors = {}
 
 function creatura.register_behavior(name, def)
-	local new_behavior = {
-		get_score = def.get_score or function() return 0.1 end, -- for mobs that use utility stacks
+	local new_behavior = def
 
-		can_start = def.can_start or function() return true end, -- for mobs that use priority queues
+	new_behavior.get_score = def.get_score or function() return 0.1 end -- for mobs that use utility stacks
 
-		on_start = def.on_start or nil,
+	new_behavior.can_start = def.can_start or function() return true end -- for mobs that use priority queues
 
-		can_continue = def.can_continue or function() return true end,
+	new_behavior.on_start  = def.on_start or nil
 
-		on_step = def.on_step or function() end,
+	new_behavior.can_continue = def.can_continue or function() return true end
 
-		on_end = def.on_end or function() --[[behavior:set_cooldown(10)]] end
-	}
+	new_behavior.on_step = def.on_step or function() end
+
+	new_behavior.on_end = def.on_end or function() --[[behavior:set_cooldown(10)]] end
 
 	function new_behavior.get_name()
 		return name
@@ -48,4 +48,22 @@ function creatura.register_behavior(name, def)
 	new_behavior.__index = new_behavior
 
 	creatura.registered_behaviors[name] = new_behavior
+end
+
+-- Register new motion driver
+
+creatura.registered_motion_drivers = {}
+
+function creatura.register_motion_driver(name, def)
+	local new_driver = {}
+
+	new_driver.calculate_yaw = def.calculate_yaw or function()
+		return math.pi
+	end
+
+	new_driver.calculate_velocity = def.calculate_velocity or function()
+		return vector.new()
+	end
+
+    creatura.registered_motion_drivers[name] = new_driver
 end
