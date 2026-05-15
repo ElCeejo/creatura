@@ -66,13 +66,13 @@ end
 function creatura.is_pos_moveable(pos, width, height)
 	local hitbox = {-width, 0, -width, width, height, width}
 
-	return creatura.is_pos_empty(pos, hitbox)
+	return creatura.is_pos_clear(pos, hitbox)
 end
 
 function creatura.is_blocked(pos, width, height)
 	local hitbox = {-width, 0, -width, width, height, width}
 
-	return not creatura.is_pos_empty(pos, hitbox)
+	return not creatura.is_pos_clear(pos, hitbox)
 end
 
 -- Target Selector translation

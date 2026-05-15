@@ -743,7 +743,6 @@ function mob_class:on_step(dtime, moveresult)
 		self.utility_stack:update()
 	end
 
-	if self.pathfinder then self.pathfinder:update() end
 	self.path_follower:update()
 	self.animation_controller:update()
 

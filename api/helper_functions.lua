@@ -11,6 +11,8 @@ local vec_raise = function(v, n)
 	return vec_offset(v, 0, n, 0)
 end
 
+-- Math
+
 function creatura.radians_difference_abs(a, b)
 	return math.abs(math.atan2(math.sin(b - a), math.cos(b - a)))
 end
@@ -45,24 +47,6 @@ function creatura.get_squared_dist(pos1, pos2)
 	return dx * dx + dy * dy + dz * dz
 end
 
--- Debugging
-
-function creatura.particle(pos, time, tex)
-	minetest.add_particle({
-		pos = pos,
-		texture = tex or "creatura_particle_red.png",
-		expirationtime = time or 1,
-		glow = 16,
-		size = 6
-	})
-end
-
---
---
---
---
---
-
 function creatura.get_neighbor_grid(pos)
 	local p1 = vector.new(pos)
 	return {
@@ -91,6 +75,58 @@ function creatura.get_neighbor_grid_3d(pos)
 		p1:add({x = 1, y = 0, z = -1})
 	}
 end
+
+-- Vectors
+
+function creatura.vector_lerp(v1, v2, w)
+	return {
+		x = v1.x + (v2.x - v1.x) * w,
+		y = v1.y + (v2.y - v1.y) * w,
+		z = v1.z + (v2.z - v1.z) * w
+	}
+end
+
+function creatura.translate_to_position(pos)
+	if type(pos) == "userdata" then
+		if pos:is_valid() then return pos:get_pos() end
+		return vector.zero()
+	end
+
+	return pos
+end
+
+function creatura.get_hitbox_edge(yaw, width)
+	local dir_x = -math.sin(yaw)
+	local dir_z = math.cos(yaw)
+
+	local scale_x = width / math.abs(dir_x)
+	local scale_z = width / math.abs(dir_z)
+	local scale = math.min(scale_x, scale_z)
+
+	return {
+		x = dir_x * scale,
+		y = 0,
+		z = dir_z * scale
+	}
+end
+
+-- Debugging
+
+function creatura.particle(pos, time, tex)
+	minetest.add_particle({
+		pos = pos,
+		texture = tex or "creatura_particle_red.png",
+		expirationtime = time or 1,
+		glow = 16,
+		size = 6
+	})
+end
+
+--
+--
+--
+--
+--
 
 local function is_pos_reachable(current_pos, target_pos)
 	local pos1 = vector.round(current_pos)
@@ -137,20 +173,7 @@ function creatura.get_wander_pos(pos, range, round)
 	return (round and vector.round(wander_pos)) or wander_pos
 end
 
-function creatura.get_hitbox_edge(yaw, width)
-	local dir_x = -math.sin(yaw)
-	local dir_z = math.cos(yaw)
-
-	local scale_x = width / math.abs(dir_x)
-	local scale_z = width / math.abs(dir_z)
-	local scale = math.min(scale_x, scale_z)
-
-	return {
-		x = dir_x * scale,
-		y = 0,
-		z = dir_z * scale
-	}
-end
+-- Node Checks
 
 local default_node_def = {walkable = true} -- both ignore and unknown nodes are walkable
 
@@ -282,7 +305,7 @@ function creatura.is_pos_above_fall(pos, max_fall)
 	return false, fall_pos
 end
 
--- Check for enough clear space to fit a collisionbox
+-- Collision Checks
 
 local function is_node_traversable(pos)
 	local node = core.get_node_or_nil(pos)
@@ -294,87 +317,28 @@ local function is_node_traversable(pos)
 	return true
 end
 
-function creatura.is_pos_empty(pos, box, liquid)
-	--[[if math.abs(box[1]) + math.abs(box[4]) <= 1
-	and box[5] <= 1 then -- only check 1 node if box doesn't exceed 1 node in size
-		return is_node_traversable(pos)
-	end]]
+function creatura.is_pos_clear(pos, box, check_func)
+	check_func = check_func or is_node_traversable
 
-	local min_p = {
-		x = pos.x + (box[1] + 0.01),
-		y = pos.y + (box[2] + 0.01),
-		z = pos.z + (box[3] + 0.01)
-	}
+	local total_width = math.abs(box[1]) + math.abs(box[4])
+	local check_length = total_width / math.ceil(total_width)
+	local total_height = math.abs(box[2]) + math.abs(box[5])
+	local check_height = total_height / math.ceil(total_height)
 
-	local max_p = {
-		x = pos.x + (box[4] - 0.01),
-		y = pos.y + (box[5] - 0.01),
-		z = pos.z + (box[6] - 0.01)
-	}
-
-	for x = min_p.x, max_p.x do
-		for y = min_p.y, max_p.y do
-			for z = min_p.z, max_p.z do
-				if (liquid and not creatura.is_liquid(vector.new(x, y, z)))
-				or not is_node_traversable(vector.new(x, y, z)) then
-					--creatura.particle(vector.new(x, y, z))
+	for x = pos.x + box[1], pos.x + box[4], check_length do
+		for y = pos.y + box[2], pos.y + box[5], check_height do
+			for z = pos.z + box[3], pos.z + box[6], check_length do
+				if not check_func(vector.new(x,y,z)) then
+					--creatura.particle(vector.new(x,y,z), 0.1, "creatura_particle_red.png")
 					return false
+				--else
+					--creatura.particle(vector.new(x,y,z), 0.1, "creatura_particle_green.png")
 				end
 			end
 		end
 	end
 
 	return true
-end
-
-function creatura.is_pos_empty_in_liquid(pos, box)
-	--[[if math.abs(box[1]) + math.abs(box[4]) <= 1
-	and box[5] <= 1 then -- only check 1 node if box doesn't exceed 1 node in size
-		return is_node_traversable(pos)
-	end]]
-
-	local min_p = {
-		x = math.floor(pos.x + 0.5 + box[1]),
-		y = math.floor(pos.y + 0.5 + box[2]),
-		z = math.floor(pos.z + 0.5 + box[3])
-	}
-
-	local max_p = {
-		x = math.floor(pos.x + 0.5 + box[4]),
-		y = math.floor(pos.y + 0.5 + box[5]),
-		z = math.floor(pos.z + 0.5 + box[6])
-	}
-
-	for x = min_p.x, max_p.x do
-		for y = min_p.y, max_p.y do
-			for z = min_p.z, max_p.z do
-				if not creatura.is_liquid(vector.new(x, y, z)) then
-					return false
-				end
-			end
-		end
-	end
-
-	return true
-end
-
-function creatura.translate_to_position(pos)
-	if type(pos) == "userdata" then
-		if pos:is_valid() then return pos:get_pos() end
-		return vector.zero()
-	end
-
-	return pos
-end
-
--- Vectors
-
-function creatura.vector_lerp(v1, v2, w)
-	return {
-		x = v1.x + (v2.x - v1.x) * w,
-		y = v1.y + (v2.y - v1.y) * w,
-		z = v1.z + (v2.z - v1.z) * w
-	}
 end
 
 -- DEPRECATED

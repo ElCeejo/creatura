@@ -19,8 +19,6 @@ function path_follower:new(parent, spec)
 	new_path_follower.stuck_timer = 2
 	new_path_follower.speed = parent_entity.speed
 
-	new_path_follower.pathfinder = creatura.pathfinder:get_ground_pathfinder(parent)
-
 	return setmetatable(new_path_follower, path_follower)
 end
 
@@ -87,10 +85,7 @@ end
 function path_follower:set_path_target(target, params, ...)
 	if not self:set_target(target, params, ...) then return end
 
-	local pathfinder = self.pathfinder
-	if not pathfinder then return end
-
-	pathfinder:set_target(self.target_pos, ...)
+	self.pathfinder = creatura.find_path
 end
 
 -- Stuck detection
@@ -180,12 +175,9 @@ function path_follower:update()
 		creatura.particle(self.target_pos)
 	end]]
 
-	local pathfinder = self.pathfinder
-	if pathfinder and pathfinder:update() then
-		local new_path = pathfinder:get_path()
-		if #new_path > 0 then
-			self.path = new_path
-		end
+	local path = (self.pathfinder and self.pathfinder(self:parent_entity(), self.target_pos)) or {}
+	if #path > 0 then
+		self.path = path
 	end
 
 	if #self.path == 0 then
@@ -212,10 +204,6 @@ function path_follower:stop()
 	self.is_active = false
 	self.stuck_timer = 2
 	self.speed = parent_entity.speed
-
-	if self.pathfinder and self.pathfinder.clear_path then
-		self.pathfinder:clear_path()
-	end
 
 	self.get_step = nil
 
