@@ -6,11 +6,10 @@
 
 local path_subclass = creatura.path_subclass
 
-local animation_controller = dofile(path_subclass .. "/animation_controller.lua")
-local physics_controller = dofile(path_subclass .. "/physics_controller.lua")
-local movement_controller = dofile(path_subclass .. "/movement_controller.lua")
+local animation = dofile(path_subclass .. "/animation.lua")
+local physics = dofile(path_subclass .. "/physics.lua")
+local traversal = dofile(path_subclass .. "/traversal.lua")
 local target_selector = dofile(path_subclass .. "/target_selector.lua")
-local path_follower = dofile(path_subclass .. "/path_follower.lua")
 local utility_stack = dofile(path_subclass .. "/utility_stack.lua")
 
 -- Math
@@ -500,6 +499,46 @@ function mob_class:is_tempted_by(stack)
 	return false
 end
 
+function mob_class:get_nearby_dropped_food()
+	local pos = self.object:get_pos()
+	if not pos then return end
+
+	local objects = core.get_objects_inside_radius(pos, self.tracking_range or 4)
+
+	for _, object in ipairs(objects) do
+		local entity = object and object:get_luaentity()
+
+		if entity
+		and entity.name
+		and entity.name == "__builtin:item"
+		and entity.itemstring
+		and self:is_tempted_by(ItemStack(entity.itemstring)) then
+			return object
+		end
+	end
+end
+
+function mob_class:eat_dropped_item(object)
+	local entity = object and object:get_luaentity()
+	if not entity or not entity.name or entity.name ~= "__builtin:item" then return end
+	local stack = entity.itemstring and ItemStack(entity.itemstring)
+	if not stack then return end
+
+	if stack:get_count() > 1 then
+		stack:take_item()
+		entity.itemstring = stack:to_string()
+	else
+		object:remove()
+	end
+
+	self.feed_count = (self.feed_count or 0) + 1
+	self:on_fed(nil, nil, self.feed_count)
+	if self.feed_count >= self.max_feed_count then
+		self.feed_count = 0
+	end
+
+end
+
 -- Child mobs
 function mob_class:set_child()
 	self:set_scale(0.5)
@@ -671,10 +710,9 @@ function mob_class:on_activate(staticdata, dtime)
 	self.width, self.height = self:get_hitbox_scale()
 
 	self.target_selector = target_selector:new(self.object)
-	self.path_follower = path_follower:new(self.object)
-	self.animation_controller = animation_controller:new(self.object)
-	self.physics_controller = physics_controller:new(self.object)
-	self.movement_controller = movement_controller:new(self.object)
+	animation:initiate(self)
+	physics:initiate(self)
+	traversal:initiate(self)
 
 	self.dtime = dtime
 	self.active_time = (self.active_time or 0) + dtime
@@ -724,13 +762,12 @@ function mob_class:on_step(dtime, moveresult)
 
 	self._diag_array = {}
 
-	self.physics_controller:update()
-	self.movement_controller:update()
+	self.physics:on_step(dtime)
+	self.traversal:on_step(dtime)
 
 	if (self.health or self.hp) <= 0 then
 		if self.utility_stack then self.utility_stack:end_behavior() end
-		self.path_follower:stop()
-		self.movement_controller:stop()
+		if self.traversal then self.traversal:stop() end
 		if self:on_death() then
 			self.object:remove()
 			return
@@ -739,12 +776,8 @@ function mob_class:on_step(dtime, moveresult)
 		return
 	end
 
-	if self.utility_stack then
-		self.utility_stack:update()
-	end
-
-	self.path_follower:update()
-	self.animation_controller:update()
+	if self.utility_stack then self.utility_stack:update() end
+	self.animation:on_step()
 
 	self:parse_diagnostic_array()
 
@@ -875,10 +908,13 @@ function mob_class:get_chebyshev_distance(target)
 end
 
 function mob_class:get_distance(target)
-	if not target then return end
-	if type(target) == "userdata" then
+	if target
+	and type(target) == "userdata" then
 		target = target:get_pos()
 	end
+
+	local pos = self.object:get_pos()
+	if not target or not pos then return self.tracking_range + 1 end
 
 	return vector.distance(self.object:get_pos(), target)
 end
@@ -901,12 +937,12 @@ local abs = math.abs
 function mob_class:has_reached_pos(target_pos)
 	local pos = self.object:get_pos()
 	local vel = self.object:get_velocity() or {x = 0, y = 0, z = 0}
-	local controller = self.movement_controller
+	local mob_traversal = self.traversal
 
-	local vertical_threshold = 1
-	if controller
-	and controller.state == "jump" then
-		vertical_threshold = 2
+	local vertical_threshold = 0.5
+	if mob_traversal
+	and mob_traversal.is_jumping then
+		vertical_threshold = 1
 	end
 
 	local diff_y = target_pos.y - pos.y
@@ -917,7 +953,7 @@ function mob_class:has_reached_pos(target_pos)
 	local squared_dist = (diff_x * diff_x) + (diff_z * diff_z)
 	local speed = math.sqrt((vel.x * vel.x) + (vel.z * vel.z))
 
-	local dynamic_radius = math.min(0.56 + (speed * 0.15), 1.5)
+	local dynamic_radius = math.min(0.25 + (speed * 0.15), 1.5)
 	if squared_dist <= (dynamic_radius * dynamic_radius) then
 		return true
 	end
@@ -958,6 +994,11 @@ function creatura.register_mob(name, def)
 		return
 	end
 
+	if getmetatable(def) then
+		-- TODO: Error message
+		return
+	end
+
 	-- Default mesh to first mesh in def.meshes to avoid breaking things
 	def.mesh = def.mesh or (def.meshes and def.meshes[1])
 
@@ -987,7 +1028,7 @@ function creatura.register_mob(name, def)
 	def.on_death = def.on_death or function(self)
 		self._death_timer = (self._death_timer or 2) - self.dtime
 
-		if not self.animation_controller:attempt_animation("die") then
+		if not self.animation:attempt_to_play("die") then
 			local rot = self.object:get_rotation()
 			local goal = math.pi * 0.5
 			local step = self.dtime

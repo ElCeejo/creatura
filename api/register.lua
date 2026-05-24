@@ -57,11 +57,11 @@ creatura.registered_motion_drivers = {}
 function creatura.register_motion_driver(name, def)
 	local new_driver = {}
 
-	new_driver.calculate_yaw = def.calculate_yaw or function()
+	new_driver.calculate_yaw = def.calculate_yaw or function() -- Expects: traversal, entity, pos, dir
 		return math.pi
 	end
 
-	new_driver.calculate_velocity = def.calculate_velocity or function()
+	new_driver.calculate_velocity = def.calculate_velocity or function() -- Expects: traversal, entity, pos, dir
 		return vector.new()
 	end
 

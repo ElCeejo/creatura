@@ -2,7 +2,7 @@
 -- Mob Meta --
 --------------
 
-local animation_controller = dofile(creatura.path_subclass .. "/animation_controller.lua") -- Animation Control
+local animation_controller = dofile(creatura.path_subclass .. "/animation.lua") -- Animation Control
 local target_selector = dofile(creatura.path_subclass .. "/target_selector.lua") -- Target Selection
 
 -- Math --
@@ -437,10 +437,10 @@ function mob:animate(animation, transition)
 	end
 
 	local anim_controller = self.animation_controller
-	anim_controller:set_animation(animation)
+	anim_controller:play(animation)
 	if transition then
 		anim_controller:on_end(function(ctrl)
-			ctrl:set_animation(transition)
+			ctrl:play(transition)
 		end, anim_controller)
 	end
 

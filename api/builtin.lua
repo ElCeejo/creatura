@@ -1,6 +1,6 @@
-----------------------------
--- Sub-class Modifiers --
-----------------------------
+--------------
+-- Built-in --
+--------------
 
 -- Math
 
@@ -8,7 +8,14 @@ local function radians_difference_abs(a, b)
 	return math.abs(math.atan2(math.sin(b - a), math.cos(b - a)))
 end
 
--- Path Follower
+--
+-- Simple "Node-by-Node" Pathfinders
+--
+
+-- Rather than finding a full path, these take an educated guess
+-- at which position in a 3x3 grid around the mob is the best
+-- way forward. This is suitable for times where the mob is
+-- already close to the target or has a mostly clear line of sight.
 
 local neighbors = {
 	{x = 1, y = 0, z = 0},
@@ -25,15 +32,14 @@ local function neighbor_shift(neighbor, shift)
 	return (8 + neighbor + shift - 1) % 8 + 1
 end
 
-function creatura.get_next_step(self)
-	local target_position = self.target_pos
-	if not target_position or not target_position.x then return end
+function creatura.get_next_step(entity, target_pos)
+	local pos = entity.object:get_pos()
+	if not pos then return end
 
-	local parent_entity = self:parent_entity()
-	local pos = vector.round(self.current_pos)
+	pos = vector.round(pos)
 	pos.y = pos.y - 0.49
 
-	local dir_to_target = vector.normalize(vector.direction(pos, target_position))
+	local dir_to_target = vector.normalize(vector.direction(pos, target_pos))
 	dir_to_target.y = 0
 
 	local current_neighbor_index = 1
@@ -57,21 +63,21 @@ function creatura.get_next_step(self)
 		local check_pos = vector.add(pos, check_offset)
 		local is_diagonal = check_offset.x ~= 0 and check_offset.z ~= 0
 
-		if parent_entity:is_pos_safe(check_pos)
+		if entity:is_pos_safe(check_pos)
 		and (not is_diagonal or creatura.line_of_sight(pos, check_pos)) then
 			return check_pos
 		end
 	end
 
-	return self.current_pos
+	return pos
 end
 
-function creatura.get_flight_step(self)
-	local target_pos = self.target_pos
-	if not target_pos or not target_pos.x then return end
+function creatura.get_flight_step(entity, target_pos)
+	local pos = entity.object:get_pos()
+	if not pos then return end
 
-	local pos = self:get_parent_attribute("pos")
-	local box = self:get_parent_attribute("collisionbox")
+	local box = entity.collisionbox
+
 	local min_x = math.floor(box[1] - 0.5)
 	local min_y = math.floor(box[2] - 0.5)
 	local min_z = math.floor(box[3] - 0.5)
@@ -122,12 +128,12 @@ function creatura.get_flight_step(self)
 	return output
 end
 
-function creatura.get_swim_step(self)
-	local target_pos = self.target_pos
-	if not target_pos or not target_pos.x then return end
+function creatura.get_swim_step(entity, target_pos)
+	local pos = entity.object:get_pos()
+	if not pos then return end
 
-	local pos = self:get_parent_attribute("pos")
-	local box = self:get_parent_attribute("collisionbox")
+	local box = entity.collisionbox
+
 	local min_x = math.floor(box[1] - 0.5)
 	local min_y = math.floor(box[2] - 0.5)
 	local min_z = math.floor(box[3] - 0.5)
@@ -178,21 +184,22 @@ function creatura.get_swim_step(self)
 	return output
 end
 
--- Motion Drivers for Movement Controller
+--
+-- Motion Drivers
+--
 
 creatura.register_motion_driver("creatura:default_walk_driver", {
-	calculate_yaw = function(self)
-		if not self.target_pos then return end
-
+	calculate_yaw = function(self, _, target_pos, target_dir)
 		local pos = self:get_parent_attribute("pos")
 		if not pos then return end
 
-		local dir = vector.direction(pos, self.target_pos)
+		local dir = target_dir or vector.direction(pos, target_pos)
 		return math.atan2(-dir.x, dir.z)
 	end,
 
 	calculate_velocity = function(self, entity)
-		if not self.target_pos then return end
+		local target_pos = self.next_pos or self.target_pos
+		if not target_pos then return end
 
 		local pos = self:get_parent_attribute("pos")
 		local vel = self:get_parent_attribute("vel")
@@ -200,112 +207,142 @@ creatura.register_motion_driver("creatura:default_walk_driver", {
 
 		if not pos or not vel or not yaw then return end
 
-		local target_dir = vector.direction(pos, self.target_pos)
+		local target_dir = vector.direction(pos, target_pos)
 		local target_yaw = math.atan2(-target_dir.x, target_dir.z)
 
 		local yaw_diff = math.max(0, radians_difference_abs(yaw, target_yaw) - (entity.turn_rate * entity.dtime))
 		local speed_mod = math.max(0.3, math.cos(yaw_diff))
 
 		return {
-			x = -math.sin(yaw) * self.speed * speed_mod,
+			x = -math.sin(yaw) * self:get_speed() * speed_mod,
 			y = vel.y,
-			z = math.cos(yaw) * self.speed * speed_mod
+			z = math.cos(yaw) * self:get_speed() * speed_mod
 		}
 	end
 })
 
 creatura.register_motion_driver("creatura:default_flight_driver", {
-	calculate_yaw = function(self)
-		if not self.target_pos then return end
-
+	calculate_yaw = function(self, _, target_pos, target_dir)
 		local pos = self:get_parent_attribute("pos")
 		if not pos then return end
 
-		local dir = vector.direction(pos, self.target_pos)
+		local dir = target_dir or vector.direction(pos, target_pos)
 		return math.atan2(-dir.x, dir.z)
 	end,
 
-	calculate_velocity = function(self, entity)
-		if not self.target_pos then return end
-
+	calculate_velocity = function(self, entity, target_pos, target_dir)
 		local pos = self:get_parent_attribute("pos")
 		local vel = self:get_parent_attribute("vel")
 		local yaw = self:get_parent_attribute("yaw")
 
 		if not pos or not vel or not yaw then return end
 
-		local speed = self:get_parent_attribute("speed")
-		local in_liquid = self:get_parent_attribute("in_liquid")
-
-		local target_dir = vector.direction(pos, self.target_pos)
+		local speed = self:get_speed()
+		target_dir = target_dir or vector.direction(pos, target_pos)
 		local target_yaw = math.atan2(-target_dir.x, target_dir.z)
-
-		if in_liquid then
-			entity.physics_controller:enable_gravity()
-			return {
-				x = target_dir.x * speed / 2,
-				y = 3,
-				z = target_dir.z * speed / 2
-			}
-		else
-			entity.physics_controller:disable_gravity()
-		end
-
 		local yaw_diff = math.max(0, radians_difference_abs(yaw, target_yaw) - (entity.turn_rate * entity.dtime))
 		local speed_mod = math.max(0.3, math.cos(yaw_diff))
 
-		return {
-			x = -math.sin(yaw) * speed * speed_mod,
+		if target_pos then
+			target_dir.x = -math.sin(yaw)
+			target_dir.z = math.cos(yaw)
+		end
+
+		return creatura.vector_lerp(vel, {
+			x = target_dir.x * speed * speed_mod,
 			y = target_dir.y * speed * speed_mod,
-			z = math.cos(yaw) * speed * speed_mod
-		}
+			z = target_dir.z * speed * speed_mod
+		}, 0.6)
 	end
 })
 
 creatura.register_motion_driver("creatura:default_swim_driver", {
-	calculate_yaw = function(self)
-		if not self.target_pos then return end
-
+	calculate_yaw = function(self, _, target_pos, target_dir)
 		local pos = self:get_parent_attribute("pos")
 		if not pos then return end
 
-		local dir = vector.direction(pos, self.target_pos)
+		local dir = target_dir or vector.direction(pos, target_pos)
 		return math.atan2(-dir.x, dir.z)
 	end,
 
-	calculate_velocity = function(self, entity)
-		if not self.target_pos then return end
-
+	calculate_velocity = function(self, entity, target_pos, target_dir)
 		local pos = self:get_parent_attribute("pos")
 		local vel = self:get_parent_attribute("vel")
 		local yaw = self:get_parent_attribute("yaw")
 
 		if not pos or not vel or not yaw then return end
 
-		local speed = self:get_parent_attribute("speed")
-		local in_liquid = self:get_parent_attribute("in_liquid")
-
-		local target_dir = vector.direction(pos, self.target_pos)
+		local speed = self:get_speed()
+		target_dir = target_dir or vector.direction(pos, target_pos)
 		local target_yaw = math.atan2(-target_dir.x, target_dir.z)
-
-		if in_liquid then
-			entity.physics_controller:disable_gravity()
-		else
-			entity.physics_controller:enable_gravity()
-			return {
-				x = target_dir.x * speed / 2,
-				y = 3,
-				z = target_dir.z * speed / 2
-			}
-		end
-
 		local yaw_diff = math.max(0, radians_difference_abs(yaw, target_yaw) - (entity.turn_rate * entity.dtime))
-		local speed_mod = math.max(0.6, math.cos(yaw_diff))
+		local speed_mod = math.max(0.3, math.cos(yaw_diff))
 
 		return creatura.vector_lerp(vel, {
 			x = -math.sin(yaw) * speed * speed_mod,
 			y = target_dir.y * speed * speed_mod,
 			z = math.cos(yaw) * speed * speed_mod
-		}, 0.15)
+		}, 0.6)
+	end
+})
+
+--
+-- Behaviors
+--
+
+creatura.register_behavior("creatura:idle", {
+	get_score = function(behavior, entity)
+		if not behavior.in_liquid and entity.in_liquid then return 0 end
+		if behavior.in_liquid and not entity.in_liquid then return 0 end
+
+		return behavior.base_score or 0.1
+	end,
+
+	on_start = function(behavior, entity)
+		entity.animation:play(behavior.anim or "stand")
+		entity.traversal:stop()
+	end,
+
+	on_step = function(behavior, entity)
+		local animation = entity.animation
+		if animation.is_playing then return end
+
+		entity.traversal:stop()
+		animation:play(behavior.anim or "stand")
+	end
+})
+
+-- Random Wander
+
+creatura.register_behavior("creatura:random_wander", {
+	get_score = function()
+		if math.random(3) == 1 then
+			return 0.2
+		end
+	end,
+
+	on_start = function(behavior, entity)
+		entity.traversal:walk_to_pos(creatura.get_wander_pos(entity.object:get_pos(), 4))
+		entity.animation:play("walk")
+		behavior.timeout = 2
+	end,
+
+	can_continue = function(behavior, entity)
+		if not entity.traversal:is_active() then
+			return false
+		end
+
+		behavior.timeout = behavior.timeout - entity.dtime
+		if behavior.timeout <= 0 then
+			return false
+		end
+
+		return true
+	end,
+
+	on_end = function(behavior, entity)
+		entity.traversal:stop()
+		entity.animation:play("stand")
+		behavior:set_cooldown(math.random(4, 6))
 	end
 })

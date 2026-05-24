@@ -1,3 +1,7 @@
+-----------
+-- Boids --
+-----------
+
 local boid_handler = {}
 boid_handler.__index = boid_handler
 

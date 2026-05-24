@@ -14,10 +14,9 @@ creatura.boid_handler = dofile(creatura.path_subclass .. "/boid_handler.lua")
 dofile(creatura.path_api .. "/register.lua")
 dofile(creatura.path_api .. "/spawning.lua")
 dofile(creatura.path_api .. "/helper_functions.lua")
-dofile(creatura.path_api .. "/subclass_modifiers.lua")
+dofile(creatura.path_api .. "/builtin.lua")
 dofile(creatura.path_api .. "/pathfinder.lua")
 dofile(creatura.path_api .. "/mob_class.lua")
-dofile(creatura.path_api .. "/behaviors.lua")
 
 
 -- Legacy support for older Creatura versions

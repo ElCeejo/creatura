@@ -284,10 +284,24 @@ end
 function pathfinder:get_path(target_pos)
 	if not target_pos or not target_pos.x then self:stop() return end
 
+	-- Target has changed, find a new path.
+	if not vector.equals(self.target_pos, vector.round(target_pos)) then
+		self:start(target_pos)
+		return {}, "waiting"
+	end
+
+	-- Path found!
+	if self.path
+	and #self.path > 0 then
+		local path = table.copy(self.path)
+		self.path = {}
+
+		return path, "finished"
+	end
+
 	-- Begin pathfinding.
 	if not self.target_pos
-	or not self.target_pos.x
-	or not vector.equals(vector.round(self.target_pos), vector.round(target_pos)) then
+	or not self.target_pos.x then
 		self:start(target_pos)
 		return {}, "waiting"
 	end
@@ -296,12 +310,6 @@ function pathfinder:get_path(target_pos)
 	if self.finding_path then
 		self:main_astar_loop(get_ground_expansion)
 		return {}, "waiting"
-	end
-
-	-- Path found!
-	if self.path
-	and self.path > 0 then
-		return self.path, "finished"
 	end
 
 	return {}, "error"
@@ -326,7 +334,7 @@ function pathfinder:get_aerial_path(target_pos)
 
 	-- Path found!
 	if self.path
-	and self.path > 0 then
+	and #self.path > 0 then
 		return self.path
 	end
 
@@ -352,7 +360,7 @@ function pathfinder:get_aquatic_path(target_pos)
 
 	-- Path found!
 	if self.path
-	and self.path > 0 then
+	and #self.path > 0 then
 		return self.path
 	end
 
@@ -500,6 +508,7 @@ function creatura.find_path(entity, target_pos)
 		entity.pathfinder = current_pathfinder
 	end
 
+	--entity:add_diagnostic("finding_path", "true")
 	--current_pathfinder:visualize()
 	return current_pathfinder:get_path(target_pos)
 end

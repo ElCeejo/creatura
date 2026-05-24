@@ -1,10 +1,14 @@
-local animation_controller = {}
-animation_controller.__index = animation_controller
+---------------
+-- Animation --
+---------------
+
+local animation = {}
+animation.__index = animation
 
 -- Create new instance
-function animation_controller:new(object)
-	local new_animator = {
-		parent = object,
+function animation:initiate(entity)
+	local new_animation = {
+		entity = entity,
 
 		current_animation = "",
 
@@ -20,20 +24,16 @@ function animation_controller:new(object)
 		end_action = {}
 	}
 
-	return setmetatable(new_animator, self)
+	entity.animation = setmetatable(new_animation, self)
 end
 
-
--- Update animation_controller data every server-step
-function animation_controller:update()
-	local parent_entity = self:parent_entity()
-	if not parent_entity then return end -- Abort if parent isn't is_valid
-
+-- Update animation data every server-step
+function animation:on_step()
 	if not self.is_playing then return end -- No need to track frames if the animation isn't playing
 
 	-- Delay frame tracking until frame blending has completed.
 	if self.blend_delay > 0 then
-		self.blend_delay = self.blend_delay - parent_entity.dtime
+		self.blend_delay = self.blend_delay - self.entity.dtime
 
 		if self.blend_delay <= 0 then
 			self.current_frame = self.animation_speed * math.abs(self.blend_delay)
@@ -43,7 +43,7 @@ function animation_controller:update()
 		end
 	end
 
-	self.current_frame = self.current_frame + (self.animation_speed * parent_entity.dtime)
+	self.current_frame = self.current_frame + (self.animation_speed * self.entity.dtime)
 
 	local i = 1
     while i <= #self.frame_actions do
@@ -55,13 +55,6 @@ function animation_controller:update()
             i = i + 1
         end
     end
-
-	if self.on_step
-	and self.is_playing then
-		if self:on_step(self.parent, unpack(self.args)) then
-			self.on_step = nil
-		end
-	end
 
 	if self.current_frame >= self.length_frames then
 		if self.is_looping then
@@ -76,19 +69,14 @@ function animation_controller:update()
 	end
 end
 
--- Return parent objects luaentity
-function animation_controller:parent_entity()
-	return self.parent and self.parent:get_luaentity()
-end
-
 -- Set Animation
-function animation_controller:set_animation(name, ...)
-	local parent_entity = self:parent_entity()
-	if not parent_entity then return end -- Early exit if parent doesn't exist
+function animation:play(name, ...)
+	local parent = self.entity.object
+	if not parent or not parent:is_valid() then return end
 
 	if self.current_animation == name then return end -- Don't waste time on resetting the current animation
 
-	local animation_def = parent_entity.animations[name]
+	local animation_def = self.entity.animations[name]
 	if not animation_def then return end -- TODO: Send an error to the log
 
 	self.current_animation = name
@@ -107,24 +95,28 @@ function animation_controller:set_animation(name, ...)
 	self.args = { ... }
 	self.end_action = {}
 
-	self.parent:set_animation(animation_def.range, animation_def.speed, animation_def.frame_blend, animation_def.loop)
+	parent:set_animation(animation_def.range, animation_def.speed, animation_def.frame_blend, animation_def.loop)
 end
 
+animation.set_animation = animation.play
+
 -- Attempt to set new animation (will only succeed if the current animation can't loop and has finished playing)
-function animation_controller:attempt_animation(name)
+function animation:attempt_to_play(name)
 	if self.is_playing or self.current_animation == name then return false end
 
-	self:set_animation(name)
+	self:play(name)
 	return true
 end
 
+animation.attempt_animation = animation.attempt_to_play
+
 -- Return current animation name and current frame
-function animation_controller:get_animation()
+function animation:get_animation()
 	return (self.current_animation or ""), (self.current_frame or 0)
 end
 
 -- Stop current animation
-function animation_controller:end_animation()
+function animation:end_animation()
 	self.current_animation = ""
 	self.length_frames = 0
 	self.animation_speed = 0
@@ -135,7 +127,7 @@ function animation_controller:end_animation()
 	self.end_action = {}
 end
 
-function animation_controller:on_frame(frame, func, ...)
+function animation:on_frame(frame, func, ...)
     table.insert(self.frame_actions, {
         frame = frame,
         action = func,
@@ -144,11 +136,11 @@ function animation_controller:on_frame(frame, func, ...)
 end
 
 -- Perform an action when the animation ends
-function animation_controller:on_end(func, ...)
+function animation:on_end(func, ...)
 	self.end_action = {
 		action = func,
 		args = { ... }
 	}
 end
 
-return animation_controller
+return animation
