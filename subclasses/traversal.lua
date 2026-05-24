@@ -230,8 +230,9 @@ function traversal:set_strafe_target(target)
 end
 
 function traversal:get_strafe_pos()
-	if self.strafe_target
-	and type(self.strafe_target) == "userdata" then
+	local target = self.strafe_target
+	if target
+	and type(target) == "userdata" then
 		self.strafe_pos = self.strafe_target:get_pos()
 	end
 
@@ -427,7 +428,7 @@ function traversal:on_step(dtime)
 	end
 
 	-- Calculate turning
-	local yaw_diff = radians_difference_abs(yaw, target_yaw)
+	local yaw_diff = radians_difference_abs(yaw, target_yaw or yaw)
 	if yaw_diff > 0.1 then
 		local smooth_rate = min(dtime * self.entity.turn_rate, yaw_diff % (pi * 2))
 		yaw = interpolate_radians(yaw, target_yaw, smooth_rate)
