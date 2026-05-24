@@ -68,14 +68,14 @@ end
 
 -- Floating Physics
 
-function physics:calculate_bouyancy(acceleration, velocity, current_pos, current_node)	
+function physics:calculate_bouyancy(acceleration, velocity, current_pos, current_node)
 	local visc = math.min(core.registered_nodes[current_node.name].liquid_viscosity, 7) + 1
 	acceleration.y = -1.2 / visc
-	
+
 	-- Check higher portion of hitbox
 	current_pos.y = current_pos.y + (self.entity.height * (self.entity.hitbox_submergence or 0.5))
 	current_node = core.get_node(current_pos)
-	
+
 	local in_deep_water = core.get_item_group(current_node.name, "liquid") ~= 0
 	if in_deep_water then
 		local sink_rate = math.max(0, -velocity.y)
