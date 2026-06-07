@@ -3,7 +3,7 @@
 --------------
 
 local animation_controller = dofile(creatura.path_subclass .. "/animation.lua") -- Animation Control
-local target_selector = dofile(creatura.path_subclass .. "/target_selector.lua") -- Target Selection
+local targets = dofile(creatura.path_subclass .. "/targets.lua") -- Target Selection
 
 -- Math --
 
@@ -844,7 +844,7 @@ function mob:activate(staticdata, dtime)
 	end
 
 	self.animation_controller = animation_controller:new(self.object)
-	self.target_selector = target_selector:new(self.object)
+	self.targets = targets:new(self.object)
 
 	if self.activate_func then
 		self:activate_func(self, staticdata, dtime)

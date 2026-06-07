@@ -172,7 +172,11 @@ local mobs_spawn = minetest.settings:get_bool("mobs_spawn") ~= false
 
 local mapgen_mobs = {}
 
+local do_spawn = false
+
 function creatura.register_abm_spawn(mob, def)
+	if not do_spawn then return end
+
 	local chance = def.chance or 3000
 	local interval = def.interval or 30
 	local min_height = def.min_height or 0

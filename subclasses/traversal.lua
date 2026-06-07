@@ -28,6 +28,8 @@ traversal.__index = traversal
 
 -- Initiate a new traversal agent
 
+--local components = {}
+
 function traversal:initiate(entity)
 	entity.traversal = {
 		entity = entity,
@@ -43,7 +45,7 @@ function traversal:initiate(entity)
 		is_stepping = false,
 		is_flying = false,
 
-		motion_timer = 0.125,
+		--motion_timer = 0.125,
 		step_up_timer = 0.425
 	}
 
@@ -54,7 +56,27 @@ function traversal:initiate(entity)
 	entity.traversal.run_speed = run_speed
 
 	setmetatable(entity.traversal, self)
+	--table.insert(components, entity.traversal)
 end
+
+--[[core.register_globalstep(function(dtime)
+	local component
+	for i = 1, #components do
+		component = components[i]
+
+		if not component
+		or not component.entity
+		or not component.entity.object then
+			components[i] = nil
+			component = components[#components]
+		end
+
+		if component
+		and component.on_step then
+			component:on_step(dtime)
+		end
+	end
+end)]]
 
 -- Get variables from parent mob
 
@@ -216,27 +238,34 @@ end
 -- Set target (mob, position) to face towards constantly
 
 function traversal:set_strafe_target(target)
-	if not target then return end
-	if type(target) == "userdata" then
-		self.is_strafing = true
-		self.strafe_pos = target:get_pos()
-		self.strafe_target = target
-	elseif type(target) ~= "table" then
+	if not target
+	or target == false then
+		self.is_strafing = false
+		self.strafe_target = nil
 		return
 	end
+	local target_type = type(target)
+	assert(
+		target_type == "table" or target_type == "userdata",
+		"[Creatura] Invalid strafe target given to traversal."
+	)
 
 	self.is_strafing = true
-	self.strafe_pos = target
+	self.strafe_target = target
 end
 
 function traversal:get_strafe_pos()
 	local target = self.strafe_target
-	if target
-	and type(target) == "userdata" then
-		self.strafe_pos = self.strafe_target:get_pos()
+	if type(target) == "table" then
+		return target
+	elseif type(target) == "userdata"
+	and target:is_valid() then
+		return target:get_pos()
+	else
+		self.strafe_target = nil
+		self.strafe_pos = nil
+		self.is_strafing = false
 	end
-
-	return self.strafe_pos
 end
 
 -- Stop all processes
@@ -380,8 +409,8 @@ function traversal:on_step(dtime)
 			end
 		end
 
-		self.motion_timer = (self.motion_timer or 0) - dtime
-		if self.motion_timer <= 0 then
+		--self.motion_timer = (self.motion_timer or 0) - dtime
+		--if self.motion_timer <= 0 then
 			if self:has_reached_pos(goal) then
 				if self.path and self.path[1] then
 					table.remove(self.path, 1)
@@ -406,9 +435,9 @@ function traversal:on_step(dtime)
 				end
 				velocity, target_yaw = self:update_driver(goal, move_dir)
 			end
-			self.motion_timer = 0.125
-			dtime = 0.125
-		end
+			--self.motion_timer = 0.125
+			--dtime = 0.125
+		--end
 	elseif self.entity.touching_ground then
 		velocity.x, velocity.z = velocity.x * 0.4, velocity.z * 0.4
 	end
@@ -428,10 +457,12 @@ function traversal:on_step(dtime)
 	end
 
 	-- Calculate turning
-	local yaw_diff = radians_difference_abs(yaw, target_yaw or yaw)
-	if yaw_diff > 0.1 then
-		local smooth_rate = min(dtime * self.entity.turn_rate, yaw_diff % (pi * 2))
-		yaw = interpolate_radians(yaw, target_yaw, smooth_rate)
+	if target_yaw then
+		local yaw_diff = radians_difference_abs(yaw, target_yaw)
+		if yaw_diff > 0.1 then
+			local smooth_rate = min(dtime * self.entity.turn_rate, yaw_diff % (pi * 2))
+			yaw = interpolate_radians(yaw, target_yaw, smooth_rate)
+		end
 	end
 	rotation.y = yaw
 

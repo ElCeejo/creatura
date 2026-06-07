@@ -74,7 +74,8 @@ function animation:play(name, ...)
 	local parent = self.entity.object
 	if not parent or not parent:is_valid() then return end
 
-	if self.current_animation == name then return end -- Don't waste time on resetting the current animation
+	-- Don't waste time on resetting the current animation
+	if self.current_animation == name and self.is_playing then return end
 
 	local animation_def = self.entity.animations[name]
 	if not animation_def then return end -- TODO: Send an error to the log

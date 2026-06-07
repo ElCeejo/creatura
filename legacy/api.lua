@@ -78,47 +78,19 @@ end
 -- Target Selector translation
 
 function creatura.get_nearby_player(self)
-	local predicate = {
-		check_sight = false,
-		include = {
-			["player"] = true,
-		}
-	}
-
-	return self.target_selector:find_target(predicate)
+	return self.targets:get_nearest_player()
 end
 
 function creatura.get_nearby_players(self)
-	local predicate = {
-		check_sight = false,
-		include = {
-			["player"] = true,
-		}
-	}
-
-	return self.target_selector:find_targets(predicate) or {}
+	return {self.targets:get_nearest_player()} or {}
 end
 
 function creatura.get_nearby_object(self, name)
-	if type(name) == "string" then name = {name = true} end
-
-	local predicate = {
-		check_sight = false,
-		include = name
-	}
-
-	return self.target_selector:find_target(predicate)
+	return self.targets:get_nearest_mob(name)
 end
 
 function creatura.get_nearby_objects(self, name)
-	if type(name) == "string" then name = {name = true} end
-
-	local predicate = {
-		check_sight = false,
-		include = name
-	}
-
-	return self.target_selector:find_targets(predicate) or {}
+	return {self.targets:get_nearest_mob(name)} or {}
 end
 
 creatura.get_nearby_entity = creatura.get_nearby_object

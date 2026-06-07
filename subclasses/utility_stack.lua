@@ -10,7 +10,12 @@ function utility_stack:new(object)
 		active_behavior = {},
 		active_score = 0,
 		active_index = 0,
-		varargs = {}
+		varargs = {},
+
+		action_step_queue = {},
+		action_stop_queue = {},
+		action_front_pointer = 1,
+		action_back_pointer = 1
 	}
 
 	return setmetatable(new_stack, self)
@@ -21,12 +26,33 @@ function utility_stack:parent_entity()
 	return self.parent and self.parent:get_luaentity()
 end
 
+-- Action Queue
+function utility_stack:clear_action_queue()
+	self.action_step_queue = {}
+	self.action_stop_queue = {}
+	self.action_front_pointer = 1
+	self.action_back_pointer = 1
+end
+
+function utility_stack:add_action_to_queue(action_func, check_func)
+	local back = self.action_back_pointer
+	self.action_step_queue[back] = action_func
+	self.action_stop_queue[back] = check_func
+	self.action_back_pointer = back + 1
+end
+
+function utility_stack:has_active_action()
+	return self.action_front_pointer < self.action_back_pointer
+end
+
 -- End current behavior
 function utility_stack:end_behavior()
 	self.active_behavior = {}
 	self.active_score = 0
 	self.active_index = 0
 	self.varargs = {}
+
+	self:clear_action_queue()
 end
 
 -- Add a new behavior to the stack
@@ -92,19 +118,34 @@ function utility_stack:update()
 
 	--parent_entity:add_diagnostic("Current Behavior", current_behavior:get_name())
 
-	if current_behavior:can_continue(parent_entity, unpack(self.varargs)) then
-		local step_result = current_behavior:on_step(parent_entity, unpack(self.varargs))
-
-		if step_result == "end" then
-			current_behavior:on_end(parent_entity, unpack(self.varargs))
-			self:end_behavior()
-		end
-	else
+	-- End when can_continue returns false
+	if not current_behavior:can_continue(parent_entity, unpack(self.varargs)) then
 		current_behavior:on_end(parent_entity, unpack(self.varargs))
 		self:end_behavior()
+		return
 	end
 
-	return nil
+	-- Perform on_step
+	local step_result = current_behavior:on_step(parent_entity, unpack(self.varargs))
+
+	-- End when on_step returns "end"
+	if step_result == "end" then
+		current_behavior:on_end(parent_entity, unpack(self.varargs))
+		self:end_behavior()
+		return
+	end
+
+	-- Execute actions
+	local front = self.action_front_pointer
+	if front < self.action_back_pointer then
+		local action_stop = self.action_stop_queue[front]
+		local action_step = self.action_step_queue[front]
+		action_step(current_behavior, parent_entity)
+
+		if action_stop(current_behavior, parent_entity) then
+			self.action_front_pointer = front + 1
+		end
+	end
 end
 
 return utility_stack

@@ -1,17 +1,6 @@
 ---------------
 -- Mob Class --
 ---------------
-
--- Subclasses
-
-local path_subclass = creatura.path_subclass
-
-local animation = dofile(path_subclass .. "/animation.lua")
-local physics = dofile(path_subclass .. "/physics.lua")
-local traversal = dofile(path_subclass .. "/traversal.lua")
-local target_selector = dofile(path_subclass .. "/target_selector.lua")
-local utility_stack = dofile(path_subclass .. "/utility_stack.lua")
-
 -- Math
 
 local random = math.random
@@ -62,10 +51,25 @@ local mob_class = {
 }
 
 mob_class.__index = mob_class
+creatura.mob_class = mob_class
 
-function mob_class:get_definition()
-	return core.registered_entities[self.name]
-end
+-- Subclasses
+
+local path_subclass = creatura.path_subclass
+
+local animation = dofile(path_subclass .. "/animation.lua")
+local physics = dofile(path_subclass .. "/physics.lua")
+local traversal = dofile(path_subclass .. "/traversal.lua")
+local targets = dofile(path_subclass .. "/targets.lua")
+local utility_stack = dofile(path_subclass .. "/utility_stack.lua")
+
+-- Main Class
+
+local path_mob_class = creatura.path_mob_class
+
+dofile(path_mob_class .. "/combat.lua")
+dofile(path_mob_class .. "/taming.lua")
+dofile(path_mob_class .. "/breeding.lua")
 
 -- DEPRECATED
 
@@ -98,38 +102,11 @@ function mob_class:parse_diagnostic_array()
 	})
 end
 
-function mob_class:calculate_mob_collision()
-	if not creatura.is_alive(self)
-	or self.fancy_collide == false then return end
-	local pos = self.object:get_pos()
-	local width = self.width * 0.5
-	local objects = minetest.get_objects_in_area(vector.subtract(pos, width), vector.add(pos, width))
-	if #objects < 2 then return end
-	local pos2
-	local dir
-	local vel, vel2
-	for i = 2, #objects do
-		local object = objects[i]
-		if creatura.is_alive(object)
-		and not self.object:get_attach()
-		and not object:get_attach() then
-			if i > 5 then break end
-			pos2 = object:get_pos()
-			dir = vector.direction(pos, pos2)
-			dir.y = 0
-			if dir.x == 0 and dir.z == 0 then
-				dir = vector.new(random(-1, 1) * random(), 0,
-								 random(-1, 1) * random())
-			end
-			vel = vector.multiply(dir, 1.5)
-			vel2 = vector.multiply(dir, -1.2) -- multiplying by -2 accounts for friction
-			self.object:add_velocity(vel2)
-			object:add_velocity(vel)
-		end
-	end
+function mob_class:get_definition()
+	return core.registered_entities[self.name]
 end
 
--- Obstacle Avoidance
+-- Physics
 
 local function is_node_traversable(pos)
 	local node = core.get_node_or_nil(pos)
@@ -223,6 +200,62 @@ function mob_class:is_pos_safe(pos)
 	return true
 end
 
+function mob_class:calculate_mob_collision()
+	if not creatura.is_alive(self)
+	or self.fancy_collide == false then return end
+	local pos = self.object:get_pos()
+	local width = self.width * 0.5
+	local objects = minetest.get_objects_in_area(vector.subtract(pos, width), vector.add(pos, width))
+	if #objects < 2 then return end
+	local pos2
+	local dir
+	local vel, vel2
+	for i = 2, #objects do
+		local object = objects[i]
+		if creatura.is_alive(object)
+		and not self.object:get_attach()
+		and not object:get_attach() then
+			if i > 5 then break end
+			pos2 = object:get_pos()
+			dir = vector.direction(pos, pos2)
+			dir.y = 0
+			if dir.x == 0 and dir.z == 0 then
+				dir = vector.new(random(-1, 1) * random(), 0,
+								 random(-1, 1) * random())
+			end
+			vel = vector.multiply(dir, 1.5)
+			vel2 = vector.multiply(dir, -1.2) -- multiplying by -2 accounts for friction
+			self.object:add_velocity(vel2)
+			object:add_velocity(vel)
+		end
+	end
+end
+
+function mob_class:set_scale(x)
+	local def = minetest.registered_entities[self.name]
+	local scale = def.visual_size or {x = 1, y = 1}
+	local box = def.collisionbox
+	local new_box = {}
+	for k, v in ipairs(box) do
+		new_box[k] = v * x
+	end
+	self.object:set_properties({
+		visual_size = {
+			x = scale.x * x,
+			y = scale.y * x
+		},
+		collisionbox = new_box
+	})
+	--self._border = index_box_border(self)
+end
+
+function mob_class:get_hitbox_scale()
+	local props = self.object:get_properties()
+	local box = props.collisionbox
+
+	return math.abs(box[1]) + box[4], box[5] - box[2]
+end
+
 -- Sounds
 function mob_class:play_sound(sound)
 	local spec = self.sounds and self.sounds[sound] or creatura.sounds[sound]
@@ -250,32 +283,6 @@ function mob_class:get_props()
 	local props = self.properties or self.object and self.object:get_properties()
 	self.properties = props
 	return props
-end
-
--- Visual and collisionbox scale
-function mob_class:set_scale(x)
-	local def = minetest.registered_entities[self.name]
-	local scale = def.visual_size or {x = 1, y = 1}
-	local box = def.collisionbox
-	local new_box = {}
-	for k, v in ipairs(box) do
-		new_box[k] = v * x
-	end
-	self.object:set_properties({
-		visual_size = {
-			x = scale.x * x,
-			y = scale.y * x
-		},
-		collisionbox = new_box
-	})
-	--self._border = index_box_border(self)
-end
-
-function mob_class:get_hitbox_scale()
-	local props = self.object:get_properties()
-	local box = props.collisionbox
-
-	return math.abs(box[1]) + box[4], box[5] - box[2]
 end
 
 -- Fixes scale relative to parent
@@ -345,289 +352,8 @@ function mob_class:set_mesh(new_mesh)
 	self.mesh_no = 1
 end
 
--- Mob Drops
-
-function mob_class:get_drops()
-	local loot = self.loot_table
-	if not loot or not loot.items then return {} end
-
-	local drops = {}
-	local item_counts = {}
-	local rolls = random(loot.min_rolls or 1, loot.max_rolls or #loot.items)
-
-	for _ = 1, rolls do
-		local total_weight = 0
-		local available_items = {}
-
-		for _, item in ipairs(loot.items) do
-			local count = item_counts[item.name] or 0
-			if not item.max_rolls or count < item.max_rolls then
-				total_weight = total_weight + item.weight
-				table.insert(available_items, item)
-			end
-		end
-
-		if total_weight <= 0 then break end
-
-		local roll = random(1, total_weight)
-		local current = 0
-
-		for _, item in ipairs(available_items) do
-			current = current + item.weight
-			if roll <= current then
-				local min_amount = item.min_amount or 1
-				local max_amount = item.max_amount or 1
-
-				table.insert(drops, ItemStack(item.name .. " " .. random(min_amount, max_amount)))
-				item_counts[item.name] = (item_counts[item.name] or 0) + 1
-				break
-			end
-		end
-	end
-	return drops
-end
-
-function mob_class:drop_item(itemstack)
-	local pos = self.object:get_pos()
-	if not pos then return end
-	local item = minetest.add_item(pos, itemstack)
-
-	if item then
-		item:add_velocity({
-			x = random(-2, 2),
-			y = 1.5,
-			z = random(-2, 2)
-		})
-
-		return true
-	end
-	return false
-end
-
-function mob_class:drop_loot(loot_table)
-	local drops = loot_table or self:get_drops()
-	if not drops or type(drops) ~= "table" or #drops < 1 then return end
-
-	for _, itemstack in ipairs(drops) do
-		self:drop_item(itemstack)
-	end
-end
-
--- Damage
-function mob_class:hurt(damage)
-	if self.protected then return end
-	if not self.health or self.health <= 0 then return end
-	self.health = math.max(0, self.health - damage)
-	return self.health
-end
-
-function mob_class:heal(healing)
-	if not self.health or self.health <= 0 then return end
-	self.health = math.max(0, self.health + healing)
-	return self.health
-end
-
-function mob_class:punch_target(target) --
-	target:punch(self.object, 1.0, {
-		full_punch_interval = 1.0,
-		damage_groups = {fleshy = self.damage or 2},
-	})
-
-	self.punch_cooldown_timer = self.punch_cooldown or 12
-end
-
-function mob_class:apply_knockback(dir, power)
-	if not dir then dir = vector.new(0, 1, 0) end
-	power = power or 6
-	local knockback = vector.multiply(dir, power)
-	self.object:add_velocity(knockback)
-end
-
--- Protection and Taming
-function mob_class:disable_despawning()
-	self.despawn_after = self:memorize("despawn_after", false)
-	self._despawn = self:memorize("_despawn", false)
-end
-
-function mob_class:set_protection()
-	self.protected = true
-	self:disable_despawning()
-end
-
-function mob_class:set_owner(player)
-	if type(player) == "userdata" then player = player:get_player_name() end
-
-	self.owner = player
-end
-
-function mob_class:is_owner(target)
-	if not self.owner then return end
-	if not target then return end
-
-	if type(target) == "userdata" then
-		if target:is_player() then
-			target = target:get_player_name()
-		else
-			local entity = target:get_luaentity()
-
-			if entity
-			and entity.owner
-			and entity.owner == self.owner then
-				return true
-			end
-		end
-	end
-
-	return target == self.owner
-end
-
-function mob_class:is_tempted_by(stack)
-	if not stack then return false end
-	local stack_name = stack
-	if type(stack) == "userdata" then stack_name = stack:get_name() end
-	if type(self.tempted_by) == "string" then
-		return stack_name == self.tempted_by
-	end
-
-	for _, tempted_by in ipairs(self.tempted_by) do
-		if stack_name == tempted_by
-		or minetest.get_item_group(stack_name, tempted_by:split(":")[2]) > 0 then
-			return true
-		end
-	end
-
-	return false
-end
-
-function mob_class:get_nearby_dropped_food()
-	local pos = self.object:get_pos()
-	if not pos then return end
-
-	local objects = core.get_objects_inside_radius(pos, self.tracking_range or 4)
-
-	for _, object in ipairs(objects) do
-		local entity = object and object:get_luaentity()
-
-		if entity
-		and entity.name
-		and entity.name == "__builtin:item"
-		and entity.itemstring
-		and self:is_tempted_by(ItemStack(entity.itemstring)) then
-			return object
-		end
-	end
-end
-
-function mob_class:eat_dropped_item(object)
-	local entity = object and object:get_luaentity()
-	if not entity or not entity.name or entity.name ~= "__builtin:item" then return end
-	local stack = entity.itemstring and ItemStack(entity.itemstring)
-	if not stack then return end
-
-	if stack:get_count() > 1 then
-		stack:take_item()
-		entity.itemstring = stack:to_string()
-	else
-		object:remove()
-	end
-
-	self.feed_count = (self.feed_count or 0) + 1
-	self:on_fed(nil, nil, self.feed_count)
-	if self.feed_count >= self.max_feed_count then
-		self.feed_count = 0
-	end
-
-end
-
--- Child mobs
-function mob_class:set_child()
-	self:set_scale(0.5)
-	self.is_child = true
-	self.time_until_grown = 300
-	if self.child_textures then
-		self:set_texture_table(self.child_textures)
-	end
-end
-
-function mob_class:growth_step()
-	local time_until_grown = self.time_until_grown or 0
-	time_until_grown = time_until_grown - self.dtime
-
-	if time_until_grown <= 0
-	and self.is_child then
-		self:set_scale(1)
-		self.is_child = false
-		time_until_grown = 0
-
-		if self.on_grown then
-			self:on_grown()
-		else
-			local textures = self:get_definition().textures
-			self:set_texture_table(textures)
-		end
-	end
-
-	self.time_until_grown = time_until_grown
-end
-
--- Environmental damage
-function mob_class:check_environment_damage()
-	local pos = self.object:get_pos()
-	if not pos then return end
-	pos.y = pos.y + 0.01
-
-	local node_at_pos = core.get_node(pos)
-
-	-- Fall Damage
-	if self.max_fall > 0 then
-		if not self.touching_ground then
-			self.fall_start = self.fall_start or pos.y
-		elseif self.fall_start then
-			local fall_height = self.fall_start - pos.y
-			self.fall_start = nil
-
-			if fall_height >= self.max_fall then
-				self:hurt(math.floor(fall_height)) -- TODO: Armor groups
-				self:indicate_damage()
-			end
-		end
-	end
-
-	-- Fire Damage
-	if self:timer(1) then
-		local def = core.registered_nodes[node_at_pos.name]
-
-		if def.damage_per_second and def.damage_per_second > 0 then
-			self:hurt(def.damage_per_second)
-			self:indicate_damage()
-		end
-	end
-
-	-- Breath
-	if core.get_item_group(node_at_pos.name, "liquid") > 0 then
-		self.in_liquid = node_at_pos.name
-
-		if self.max_breath > 0
-		and self:timer(1) then
-			local pos_at_head = vector.offset(pos, 0, self.height or 1, 0)
-			local node_at_head = core.get_node(pos_at_head)
-			if core.get_item_group(node_at_head.name, "liquid") > 0 then
-				if self.breath <= 0 then
-					self:hurt(1)
-					self:indicate_damage()
-				else
-					self.breath = (self.breath or self.max_breath) - 1
-				end
-			else
-				self.breath = self.max_breath
-			end
-		end
-	else
-		self.in_liquid = false
-	end
-end
-
 -- Staticdata
+
 function mob_class:memorize(id, val)
 	self.perm_data[id] = val
 	return self.perm_data[id]
@@ -709,7 +435,7 @@ function mob_class:on_activate(staticdata, dtime)
 
 	self.width, self.height = self:get_hitbox_scale()
 
-	self.target_selector = target_selector:new(self.object)
+	targets:initiate(self)
 	animation:initiate(self)
 	physics:initiate(self)
 	traversal:initiate(self)

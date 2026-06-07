@@ -1,4 +1,5 @@
 creatura = {
+	path_mob_class = minetest.get_modpath("creatura") .. "/mob_class",
 	path_api = minetest.get_modpath("creatura") .. "/api",
 	path_subclass = minetest.get_modpath("creatura") .. "/subclasses",
 }
@@ -16,7 +17,7 @@ dofile(creatura.path_api .. "/spawning.lua")
 dofile(creatura.path_api .. "/helper_functions.lua")
 dofile(creatura.path_api .. "/builtin.lua")
 dofile(creatura.path_api .. "/pathfinder.lua")
-dofile(creatura.path_api .. "/mob_class.lua")
+dofile(creatura.path_mob_class .. "/mob_class.lua")
 
 
 -- Legacy support for older Creatura versions
