@@ -50,20 +50,49 @@ function creatura.register_behavior(name, def)
 	creatura.registered_behaviors[name] = new_behavior
 end
 
+-- Register new action
+
+creatura.registered_actions = {}
+
+function creatura.register_action(name, func)
+	local current_mod_name = core.get_current_modname()
+	assert(
+		(name and name:match("^" .. current_mod_name .. ":")),
+		"[Creatura] Invalid modname in attempt to register action: " .. name
+	)
+	assert(
+		(creatura.registered_actions[name] == nil),
+		"[Creatura] Attempt to override existing action: " .. name
+	)
+	assert(
+		(func and type(func) == "function"),
+		"[Creatura] Missing function in attempt to register action: " .. name
+	)
+	creatura.registered_actions[name] = func
+end
+
 -- Register new motion driver
 
 creatura.registered_motion_drivers = {}
 
 function creatura.register_motion_driver(name, def)
-	local new_driver = {}
+	if not name then return end
+	assert(
+		def.calculate_yaw ~= nil and def.calculate_velocity ~= nil,
+		"[Creatura] Missing function in attempt to register motion driver: " .. name
+	)
+	assert(
+		type(def.calculate_yaw) == "function" and type(def.calculate_velocity) == "function",
+		"[Creatura] Invalid function in attempt to register motion driver: " .. name
+	)
 
-	new_driver.calculate_yaw = def.calculate_yaw or function() -- Expects: traversal, entity, pos, dir
-		return math.pi
-	end
+	creatura.registered_motion_drivers[name] = {
+		calculate_yaw = def.calculate_yaw or function() -- Expects: traversal, entity, pos, dir
+			return math.pi
+		end,
 
-	new_driver.calculate_velocity = def.calculate_velocity or function() -- Expects: traversal, entity, pos, dir
-		return vector.new()
-	end
-
-    creatura.registered_motion_drivers[name] = new_driver
+		calculate_velocity = def.calculate_velocity or function() -- Expects: traversal, entity, pos, dir
+			return vector.new()
+		end
+	}
 end

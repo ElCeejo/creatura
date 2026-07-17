@@ -430,13 +430,13 @@ end
 -- Set mobs animation (if specified animation isn't already playing)
 
 function mob:animate(animation, transition)
-	local current_animation = self.animation_controller:get_animation()
+	local current_animation = self.animation:get_animation()
 	if current_animation == animation
 	or current_animation == transition then
 		return current_animation
 	end
 
-	local anim_controller = self.animation_controller
+	local anim_controller = self.animation
 	anim_controller:play(animation)
 	if transition then
 		anim_controller:on_end(function(ctrl)
@@ -843,8 +843,8 @@ function mob:activate(staticdata, dtime)
 		end
 	end
 
-	self.animation_controller = animation_controller:new(self.object)
-	self.targets = targets:new(self.object)
+	animation_controller:initiate(self)
+	targets:initiate(self)
 
 	if self.activate_func then
 		self:activate_func(self, staticdata, dtime)
@@ -896,7 +896,7 @@ function mob:on_step(dtime, moveresult)
 	and self._execute_utilities then
 		self:_execute_utilities()
 	end
-	self.animation_controller:update()
+	self.animation:on_step()
 	-- Die
 	if self.hp <= 0
 	and self.death_func then

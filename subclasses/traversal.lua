@@ -28,8 +28,6 @@ traversal.__index = traversal
 
 -- Initiate a new traversal agent
 
---local components = {}
-
 function traversal:initiate(entity)
 	entity.traversal = {
 		entity = entity,
@@ -46,7 +44,8 @@ function traversal:initiate(entity)
 		is_flying = false,
 
 		--motion_timer = 0.125,
-		step_up_timer = 0.425
+		step_up_timer = 0.425,
+		path_pointer = 1
 	}
 
 	-- Speed
@@ -58,25 +57,6 @@ function traversal:initiate(entity)
 	setmetatable(entity.traversal, self)
 	--table.insert(components, entity.traversal)
 end
-
---[[core.register_globalstep(function(dtime)
-	local component
-	for i = 1, #components do
-		component = components[i]
-
-		if not component
-		or not component.entity
-		or not component.entity.object then
-			components[i] = nil
-			component = components[#components]
-		end
-
-		if component
-		and component.on_step then
-			component:on_step(dtime)
-		end
-	end
-end)]]
 
 -- Get variables from parent mob
 
@@ -268,12 +248,17 @@ function traversal:get_strafe_pos()
 	end
 end
 
+-- Turn to specified yaw
+
+function traversal:turn_to_yaw(yaw)
+	self.target_yaw = yaw
+end
+
 -- Stop all processes
 
 function traversal:stop()
 	self.target_pos = vector.new()
 	self.move_dir = vector.new()
-	self.next_pos = nil
 	self.path = nil
 	self.current_pathfinder = nil
 
@@ -328,7 +313,8 @@ function traversal:check_for_steps()
 	local max_step_level = math.floor(self.current_pos.y + 0.5) + 0.4
 
 	local moveresult = self.entity.moveresult
-	if moveresult.touching_ground
+	if moveresult
+	and moveresult.touching_ground
 	and moveresult.collides then
 		for _, collide in ipairs(moveresult.collisions) do
 			if collide.node_pos
@@ -386,7 +372,7 @@ function traversal:on_step(dtime)
 	self.current_vel = velocity
 	self.current_yaw = yaw
 
-	local target_yaw = yaw
+	local target_yaw = self.target_yaw or yaw
 
 	--self:get_step()
 	local step_height = self:get_parent_attribute("stepheight") or 0
@@ -402,42 +388,39 @@ function traversal:on_step(dtime)
 			if not self.path or #self.path < 1 then
 				local find_path = self.current_pathfinder
 				self.path = find_path(self.entity, goal)
+				self.path_pointer = 1
 			end
 
-			if self.path and #self.path > 1 then
-				goal = self.path[1]
+			if self.path
+			and self.path[self.path_pointer] then
+				goal = self.path[self.path_pointer]
+				creatura.particle(goal, 0.2)
+				--self.entity:add_diagnostic("path_pointer", self.path_pointer)
+
+				if math.sqrt(((pos.x - goal.x) ^ 2) + ((pos.z - goal.z) ^ 2)) < 1.2 then
+					self.path_pointer = self.path_pointer + 1
+
+					if self.path[self.path_pointer] then
+						goal = self.path[self.path_pointer]
+					else
+						self:stop() -- We've reached the end of the path
+					end
+				end
 			end
 		end
 
-		--self.motion_timer = (self.motion_timer or 0) - dtime
-		--if self.motion_timer <= 0 then
-			if self:has_reached_pos(goal) then
-				if self.path and self.path[1] then
-					table.remove(self.path, 1)
-					if self.path[1] then
-						goal = self.path[1]
-					else
-						self:stop()
-						goal = nil
-					end
-				else
-					self:stop()
-					goal = nil
-				end
+		if goal and goal.x then
+			local move_dir = self.move_dir
+			if vector.length(move_dir) == 0 then
+				move_dir = nil
+			elseif vector.length(goal) == 0 then
+				goal = nil
 			end
 
-			if goal then
-				local move_dir = self.move_dir
-				if vector.length(move_dir) == 0 then
-					move_dir = nil
-				elseif vector.length(goal) == 0 then
-					goal = nil
-				end
-				velocity, target_yaw = self:update_driver(goal, move_dir)
-			end
-			--self.motion_timer = 0.125
-			--dtime = 0.125
-		--end
+			local _vel, _yaw  = self:update_driver(goal, move_dir)
+			velocity = _vel
+			target_yaw = self.target_yaw or _yaw
+		end
 	elseif self.entity.touching_ground then
 		velocity.x, velocity.z = velocity.x * 0.4, velocity.z * 0.4
 	end
@@ -462,6 +445,8 @@ function traversal:on_step(dtime)
 		if yaw_diff > 0.1 then
 			local smooth_rate = min(dtime * self.entity.turn_rate, yaw_diff % (pi * 2))
 			yaw = interpolate_radians(yaw, target_yaw, smooth_rate)
+		elseif self.target_yaw then
+			self.target_yaw = nil
 		end
 	end
 	rotation.y = yaw

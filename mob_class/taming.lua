@@ -6,18 +6,24 @@ function mob_class:disable_despawning()
 end
 
 function mob_class:set_protection()
-	self.protected = true
+	self._protected = true
 	self:disable_despawning()
 end
 
 function mob_class:set_owner(player)
 	if type(player) == "userdata" then player = player:get_player_name() end
 
-	self.owner = player
+	self._owner = player
+
+	if self.on_tamed then self:on_tamed(core.get_player_by_name(player)) end
+end
+
+function mob_class:get_owner()
+	return self._owner and self._owner ~= "" and core.get_player_by_name(self._owner)
 end
 
 function mob_class:is_owner(target)
-	if not self.owner then return end
+	if not self._owner then return end
 	if not target then return end
 
 	if type(target) == "userdata" then
@@ -27,14 +33,18 @@ function mob_class:is_owner(target)
 			local entity = target:get_luaentity()
 
 			if entity
-			and entity.owner
-			and entity.owner == self.owner then
+			and entity._owner
+			and entity._owner == self._owner then
 				return true
 			end
 		end
 	end
 
-	return target == self.owner
+	return target == self._owner
+end
+
+function mob_class:is_tamed()
+	return self._owner and self._owner ~= ""
 end
 
 function mob_class:is_tempted_by(stack)
@@ -42,7 +52,7 @@ function mob_class:is_tempted_by(stack)
 	local stack_name = stack
 	if type(stack) == "userdata" then stack_name = stack:get_name() end
 	if type(self.tempted_by) == "string" then
-		return stack_name == self.tempted_by
+		return stack_name == self.tempted_by -- TODO: Allow groups
 	end
 
 	for _, tempted_by in ipairs(self.tempted_by) do
@@ -53,6 +63,10 @@ function mob_class:is_tempted_by(stack)
 	end
 
 	return false
+end
+
+function mob_class:get_feed_count()
+	return self._feed_count or 0
 end
 
 function mob_class:get_nearby_dropped_food()
@@ -87,9 +101,9 @@ function mob_class:eat_dropped_item(object)
 		object:remove()
 	end
 
-	self.feed_count = (self.feed_count or 0) + 1
-	self:on_fed(nil, nil, self.feed_count)
-	if self.feed_count >= self.max_feed_count then
-		self.feed_count = 0
+	self._feed_count = (self._feed_count or 0) + 1
+	self:on_fed(nil, nil, self._feed_count)
+	if self._feed_count >= self.max_feed_count then
+		self._feed_count = 0
 	end
 end

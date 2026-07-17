@@ -44,10 +44,29 @@ local mob_class = {
 	max_breath = 20,
 	max_feed_count = 5,
 	max_fall = 3,
-	armor_groups = {fleshy = 100},
+	armor_groups = {
+		fleshy = 100,
+		fall = 100
+	},
 	turn_rate = 3.14,
 	jump_height = 1.1,
-	tempted_by = {}
+	tempted_by = {},
+
+	-- Internal properties
+	_is_child = false,
+	_time_until_grown = 0,
+	_action_queue = {
+		_front_pointer = 1,
+		_back_pointer = 1,
+		_actions = {},
+		_args = {}
+	},
+	_detached_inventory = {
+		_name = ",",
+		_ref = {},
+		_lists = {},
+		_list_sizes = {}
+	}
 }
 
 mob_class.__index = mob_class
@@ -70,6 +89,8 @@ local path_mob_class = creatura.path_mob_class
 dofile(path_mob_class .. "/combat.lua")
 dofile(path_mob_class .. "/taming.lua")
 dofile(path_mob_class .. "/breeding.lua")
+dofile(path_mob_class .. "/mounting.lua")
+dofile(path_mob_class .. "/inventory.lua")
 
 -- DEPRECATED
 
@@ -231,22 +252,21 @@ function mob_class:calculate_mob_collision()
 	end
 end
 
-function mob_class:set_scale(x)
-	local def = minetest.registered_entities[self.name]
-	local scale = def.visual_size or {x = 1, y = 1}
-	local box = def.collisionbox
+function mob_class:set_scale(scale)
+	local size = self.visual_size or {}
+	local old_box = self.collisionbox or {-0.5, 0, -0.5, 0.5, 1, 0.5}
 	local new_box = {}
-	for k, v in ipairs(box) do
-		new_box[k] = v * x
+	for k, v in ipairs(old_box) do
+		new_box[k] = v * scale
 	end
 	self.object:set_properties({
 		visual_size = {
-			x = scale.x * x,
-			y = scale.y * x
+			x = (size.x or 10) * scale,
+			y = (size.y or 10) * scale,
+			z = (size.z or 10) * scale
 		},
 		collisionbox = new_box
 	})
-	--self._border = index_box_border(self)
 end
 
 function mob_class:get_hitbox_scale()
@@ -269,9 +289,9 @@ function mob_class:play_sound(sound)
 
 		pitch = pitch - (random(-10, 10) * 0.005)
 
-		parameters.gain = spec.gain or 1
+		parameters.gain = spec.gain or 1.0
 		parameters.max_hear_distance = spec.distance or 8
-		parameters.fade = spec.fade or 1
+		parameters.fade = spec.fade or 1.0
 		parameters.pitch = pitch
 		return minetest.sound_play(name, parameters)
 	end
@@ -352,6 +372,36 @@ function mob_class:set_mesh(new_mesh)
 	self.mesh_no = 1
 end
 
+-- Action Queue
+
+local registered_actions = creatura.registered_actions
+
+function mob_class:add_action_to_queue(name, ...)
+	local back_pointer = self._action_queue._back_pointer
+	local action = registered_actions[name]
+
+    self._action_queue._actions[back_pointer] = action
+	self._action_queue._args[back_pointer] = { ... }
+    self._action_queue._back_pointer = back_pointer + 1
+end
+
+function mob_class:has_active_action()
+	return self._action_queue._front_pointer < self._action_queue._back_pointer
+end
+
+function mob_class:clear_action_queue()
+	self._action_queue = {
+		_front_pointer = 1,
+		_back_pointer = 1,
+		_actions = {},
+		_args = {}
+	}
+end
+
+function mob_class:get_action_queue()
+	return self._action_queue
+end
+
 -- Staticdata
 
 function mob_class:memorize(id, val)
@@ -372,7 +422,7 @@ function mob_class:get_staticdata()
 	data.perm_data = self.perm_data
 	data.health = self.health or self.hp or self.max_health
 	self.hp = data.health -- backward compatability
-	data.breath = self.breath or self.max_breath
+	data._breath = self._breath or self.max_breath
 
 	data._custom_texture_table = self._custom_texture_table
 	data.textures = self._custom_texture_table or self.textures
@@ -380,12 +430,16 @@ function mob_class:get_staticdata()
 	data.texture_no = self.texture_no or random(#self.textures)
 	data.mesh_no = self.mesh_no or (self.meshes and random(#self.meshes))
 
-	data.is_child = self.is_child or false
-	data.time_until_grown = self.time_until_grown or 0
+	data._is_child = self._is_child or false
+	data._time_until_grown = self._time_until_grown or 0
 
-	data.protected = self.protected
-	data.owner = self.owner
-	data.feed_count = self.feed_count or 0
+	data._protected = self._protected
+	data._owner = self._owner
+	data._feed_count = self._feed_count or 0
+
+	data._detached_inventory = {}
+	data._detached_inventory._lists = self._detached_inventory._lists
+	data._detached_inventory._list_sizes = self._detached_inventory._list_sizes
 
 	data.active_time = self.active_time or 0
 	return core.serialize(data)
@@ -411,7 +465,8 @@ function mob_class:on_activate(staticdata, dtime)
 
 	self.perm_data = self.perm_data or {}
 
-	if self.is_child then
+	self.is_child = nil
+	if self:is_child() then
 		self:set_child()
 	end
 
@@ -476,17 +531,17 @@ end
 function mob_class:on_step(dtime, moveresult)
 	self.width, self.height = self:get_hitbox_scale()
 
-	self.punch_cooldown_timer = math.max(self.punch_cooldown_timer - self.dtime, 0)
+	self.punch_cooldown_timer = math.max(self.punch_cooldown_timer - dtime, 0)
 
 	self.dtime = dtime
 	self.moveresult = moveresult
-	self.touching_ground = moveresult.touching_ground
+	self.touching_ground = moveresult and moveresult.touching_ground or false
 	self.stand_pos = self.object:get_pos()
 
 	self:check_environment_damage()
 	self:growth_step()
 
-	self._diag_array = {}
+	self._diag_array = self._diag_array or {}
 
 	self.physics:on_step(dtime)
 	self.traversal:on_step(dtime)
@@ -591,17 +646,17 @@ end
 -- On Rightclick
 function mob_class:on_rightclick(clicker)
 	local wielded_item = clicker and clicker:is_player() and clicker:get_wielded_item()
-	local feed_count = self.feed_count or 0
+	local feed_count = self._feed_count or 0
 
 	-- Feed mob
 	if self:is_tempted_by(wielded_item) then
 		feed_count = feed_count + 1
-		if feed_count > (self.max_feed_count or 5) then
-			feed_count = 1
-		end
-
 		wielded_item = (self.on_fed and self:on_fed(clicker, wielded_item, feed_count)) or wielded_item
-		self.feed_count = feed_count
+
+		if feed_count > (self.max_feed_count or 5) then
+			feed_count = 0
+		end
+		self._feed_count = feed_count
 	end
 
 	clicker:set_wielded_item(wielded_item)
@@ -609,6 +664,17 @@ function mob_class:on_rightclick(clicker)
 	if self.on_interact then
 		self:on_interact(clicker)
 	end
+end
+
+-- On Deactivate
+function mob_class:on_deactivate(removal)
+	if self._detached_inventory
+	and self._detached_inventory._name then
+		core.remove_detached_inventory(self._detached_inventory._name)
+	end
+
+	local func = self.deactivate_func
+	if func then func(self, removal) end
 end
 
 -- Timer
@@ -665,7 +731,7 @@ function mob_class:has_reached_pos(target_pos)
 	local vel = self.object:get_velocity() or {x = 0, y = 0, z = 0}
 	local mob_traversal = self.traversal
 
-	local vertical_threshold = 0.5
+	local vertical_threshold = 0.51
 	if mob_traversal
 	and mob_traversal.is_jumping then
 		vertical_threshold = 1
@@ -679,12 +745,12 @@ function mob_class:has_reached_pos(target_pos)
 	local squared_dist = (diff_x * diff_x) + (diff_z * diff_z)
 	local speed = math.sqrt((vel.x * vel.x) + (vel.z * vel.z))
 
-	local dynamic_radius = math.min(0.25 + (speed * 0.15), 1.5)
+	local dynamic_radius = math.min(0.4 + (speed * 0.15), 1.5)
 	if squared_dist <= (dynamic_radius * dynamic_radius) then
 		return true
 	end
 
-	if squared_dist < 4.0 and speed > 0.5 then
+	if squared_dist < 4 and speed > 0.5 then
 		local dot = (diff_x * vel.x) + (diff_z * vel.z)
 		if dot <= 0 then
 			return true
@@ -693,24 +759,6 @@ function mob_class:has_reached_pos(target_pos)
 
 	return false
 end
-
--- Utils
-
---[[function mob_class:get_closest_player()
-	local target_selector = self.target_selector
-	if not target_selector then return end
-
-	return target_selector:get_closest_player()
-end
-
-function mob_class:get_owner()
-	if not self.owner then return end
-
-	local owner = core.get_player_by_name(self.owner)
-	if not owner or not owner:is_valid() then return end
-
-	return owner
-end]]
 
 -- Register Mob
 function creatura.register_mob(name, def)
@@ -748,6 +796,11 @@ function creatura.register_mob(name, def)
 		old_punch = def.on_punch
 		def.on_hit = old_punch
 		def.on_punch = nil
+	end
+
+	if def.on_deactivate then
+		def.deactivate_func = def.on_deactivate
+		def.on_deactivate = nil
 	end
 
 	-- Mortality.

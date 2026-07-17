@@ -285,7 +285,8 @@ function pathfinder:get_path(target_pos)
 	if not target_pos or not target_pos.x then self:stop() return end
 
 	-- Target has changed, find a new path.
-	if not vector.equals(self.target_pos, vector.round(target_pos)) then
+	if not vector.equals(self.target_pos, vector.round(target_pos))
+	or not vector.equals(vector.round(self.parent:get_pos()), self.start_pos) then
 		self:start(target_pos)
 		return {}, "waiting"
 	end

@@ -10,12 +10,7 @@ function utility_stack:new(object)
 		active_behavior = {},
 		active_score = 0,
 		active_index = 0,
-		varargs = {},
-
-		action_step_queue = {},
-		action_stop_queue = {},
-		action_front_pointer = 1,
-		action_back_pointer = 1
+		varargs = {}
 	}
 
 	return setmetatable(new_stack, self)
@@ -26,25 +21,6 @@ function utility_stack:parent_entity()
 	return self.parent and self.parent:get_luaentity()
 end
 
--- Action Queue
-function utility_stack:clear_action_queue()
-	self.action_step_queue = {}
-	self.action_stop_queue = {}
-	self.action_front_pointer = 1
-	self.action_back_pointer = 1
-end
-
-function utility_stack:add_action_to_queue(action_func, check_func)
-	local back = self.action_back_pointer
-	self.action_step_queue[back] = action_func
-	self.action_stop_queue[back] = check_func
-	self.action_back_pointer = back + 1
-end
-
-function utility_stack:has_active_action()
-	return self.action_front_pointer < self.action_back_pointer
-end
-
 -- End current behavior
 function utility_stack:end_behavior()
 	self.active_behavior = {}
@@ -52,7 +28,7 @@ function utility_stack:end_behavior()
 	self.active_index = 0
 	self.varargs = {}
 
-	self:clear_action_queue()
+	self:parent_entity():clear_action_queue()
 end
 
 -- Add a new behavior to the stack
@@ -136,14 +112,17 @@ function utility_stack:update()
 	end
 
 	-- Execute actions
-	local front = self.action_front_pointer
-	if front < self.action_back_pointer then
-		local action_stop = self.action_stop_queue[front]
-		local action_step = self.action_step_queue[front]
-		action_step(current_behavior, parent_entity)
-
-		if action_stop(current_behavior, parent_entity) then
-			self.action_front_pointer = front + 1
+	local action_queue = parent_entity:get_action_queue()
+	local front_pointer = action_queue._front_pointer
+	if front_pointer < action_queue._back_pointer then
+		local current_action = action_queue._actions[front_pointer]
+		local result = current_action(parent_entity, unpack(action_queue._args[front_pointer]))
+		if type(result) == "function" then
+			action_queue._actions[front_pointer] = result
+		elseif result == true then
+			action_queue._front_pointer = front_pointer + 1
+		elseif result == false then
+			parent_entity:clear_action_queue()
 		end
 	end
 end

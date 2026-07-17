@@ -106,4 +106,4 @@ function boid_handler:get_direction()
 	return output
 end
 
-return boid_handler
+creatura.boids = boid_handler

@@ -21,7 +21,7 @@ function targets:is_target_valid(target)
 	if not target:is_valid() then return false end
 
 	local parent_entity = self.entity
-	local distance = parent_entity:get_distance(target) or math.huge
+	local distance = vector.distance(parent_entity.object:get_pos(), target:get_pos()) or math.huge
 	if distance > parent_entity.tracking_range then return false end
 
 	local entity = target:get_luaentity()

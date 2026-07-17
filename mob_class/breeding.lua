@@ -15,24 +15,27 @@ function mob_class:get_player_holding_food()
 	end
 end
 
-
 function mob_class:set_child()
 	self:set_scale(0.5)
-	self.is_child = true
-	self.time_until_grown = 300
+	self._is_child = true
+	self._time_until_grown = 300
 	if self.child_textures then
 		self:set_texture_table(self.child_textures)
 	end
 end
 
+function mob_class:is_child()
+	return self._is_child, self._time_until_grown
+end
+
 function mob_class:growth_step()
-	local time_until_grown = self.time_until_grown or 0
+	local time_until_grown = self._time_until_grown or 0
 	time_until_grown = time_until_grown - self.dtime
 
 	if time_until_grown <= 0
-	and self.is_child then
+	and self._is_child then
 		self:set_scale(1)
-		self.is_child = false
+		self._is_child = false
 		time_until_grown = 0
 
 		if self.on_grown then
@@ -43,5 +46,14 @@ function mob_class:growth_step()
 		end
 	end
 
-	self.time_until_grown = time_until_grown
+	self._time_until_grown = time_until_grown
+end
+
+function mob_class:can_breed()
+	return not self:is_child() and (not self.breeding_cooldown or self.breeding_cooldown == 0)
+end
+
+function mob_class:spawn_child()
+	local obj = core.add_entity(self.object:get_pos(), self.name)
+	obj:get_luaentity():set_child()
 end

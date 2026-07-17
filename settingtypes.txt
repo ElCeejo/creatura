@@ -1,0 +1,3 @@
+#    Enable support for beta versions of Creatura
+creatura_support_legacy (Support Legacy Versions) bool true
+

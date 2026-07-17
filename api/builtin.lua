@@ -184,9 +184,9 @@ function creatura.get_swim_step(entity, target_pos)
 	return output
 end
 
---
--- Motion Drivers
---
+--------------------
+-- Motion Drivers --
+--------------------
 
 creatura.register_motion_driver("creatura:default_walk_driver", {
 	calculate_yaw = function(self, _, target_pos, target_dir)
@@ -197,18 +197,15 @@ creatura.register_motion_driver("creatura:default_walk_driver", {
 		return math.atan2(-dir.x, dir.z)
 	end,
 
-	calculate_velocity = function(self, entity)
-		local target_pos = self.next_pos or self.target_pos
-		if not target_pos then return end
-
+	calculate_velocity = function(self, entity, target_pos, target_dir)
 		local pos = self:get_parent_attribute("pos")
 		local vel = self:get_parent_attribute("vel")
 		local yaw = self:get_parent_attribute("yaw")
 
 		if not pos or not vel or not yaw then return end
 
-		local target_dir = vector.direction(pos, target_pos)
-		local target_yaw = math.atan2(-target_dir.x, target_dir.z)
+		local dir = target_dir or vector.direction(pos, target_pos)
+		local target_yaw = math.atan2(-dir.x, dir.z)
 
 		local yaw_diff = math.max(0, radians_difference_abs(yaw, target_yaw) - (entity.turn_rate * entity.dtime))
 		local speed_mod = math.max(0.3, math.cos(yaw_diff))
@@ -286,9 +283,9 @@ creatura.register_motion_driver("creatura:default_swim_driver", {
 	end
 })
 
---
--- Behaviors
---
+---------------
+-- Behaviors --
+---------------
 
 creatura.register_behavior("creatura:idle", {
 	get_score = function(behavior, entity)
@@ -312,8 +309,6 @@ creatura.register_behavior("creatura:idle", {
 	end
 })
 
--- Random Wander
-
 creatura.register_behavior("creatura:random_wander", {
 	get_score = function()
 		if math.random(3) == 1 then
@@ -321,23 +316,13 @@ creatura.register_behavior("creatura:random_wander", {
 		end
 	end,
 
-	on_start = function(behavior, entity)
-		entity.traversal:walk_to_pos(creatura.get_wander_pos(entity.object:get_pos(), 4))
-		entity.animation:play("walk")
-		behavior.timeout = 2
+	on_start = function(_, entity)
+		local wander_to = creatura.get_wander_pos(entity.object:get_pos(), 2, true)
+		entity:add_action_to_queue("creatura:simple_walk", wander_to)
 	end,
 
-	can_continue = function(behavior, entity)
-		if not entity.traversal:is_active() then
-			return false
-		end
-
-		behavior.timeout = behavior.timeout - entity.dtime
-		if behavior.timeout <= 0 then
-			return false
-		end
-
-		return true
+	can_continue = function(_, entity)
+		return entity:has_active_action()
 	end,
 
 	on_end = function(behavior, entity)
@@ -346,3 +331,97 @@ creatura.register_behavior("creatura:random_wander", {
 		behavior:set_cooldown(math.random(4, 6))
 	end
 })
+
+-------------
+-- Actions --
+-------------
+
+creatura.register_action("creatura:simple_idle", function(entity, timeout, anim)
+	entity.animation:play(anim or "idle")
+	local duration = timeout or 1.0
+	local function pursue(self)
+		duration = duration - self.dtime
+		if duration <= 0 then return true end
+	end
+
+	return pursue
+end)
+
+creatura.register_action("creatura:simple_walk", function(entity, target_pos, anim, timeout)
+	entity.traversal:walk_to_pos(target_pos)
+	entity.animation:play(anim or "walk")
+	local duration = timeout or 1.0
+	local function walk(self)
+		duration = duration - self.dtime
+		if duration <= 0 then return true end
+		if self:has_reached_pos(target_pos) then return true end
+	end
+
+	return walk
+end)
+
+creatura.register_action("creatura:simple_run", function(entity, target_pos, anim, timeout)
+	entity.traversal:run_to_pos(target_pos)
+	entity.animation:play(anim or "run")
+	local duration = timeout or 1.0
+	local function run(self)
+		duration = duration - self.dtime
+		if duration <= 0 then return true end
+		if self:has_reached_pos(target_pos) then return true end
+	end
+
+	return run
+end)
+
+creatura.register_action("creatura:simple_pursue", function(entity, target, anim, timeout)
+	local target_pos = target and target:get_pos()
+	local init = false
+	local duration = timeout or 3.0
+
+	local function pursue(self)
+		duration = duration - self.dtime
+		if duration <= 0 then return false end
+		target_pos = target and target:get_pos()
+		if not target_pos then return false end
+		if self:has_reached_pos(target_pos) then return true end
+
+		if not init
+		or self:timer(1) then
+			entity.traversal:run_to_pos(target_pos)
+			entity.animation:play(anim or "run")
+		end
+	end
+
+	return pursue
+end)
+
+local function action_pathfind_walk(entity, target_pos, anim, timeout)
+	entity.traversal:walk_along_path(target_pos)
+	entity.animation:play(anim or "walk")
+	local duration = timeout or vector.distance(entity.object:get_pos(), target_pos) * 1.5
+	local function pathfind_walk(self)
+		duration = duration - self.dtime
+		if duration <= 0 then return true end
+		if self:has_reached_pos(target_pos) then return true end
+		if not self.traversal:is_active() then return true end
+	end
+
+	return pathfind_walk
+end
+
+creatura.register_action("creatura:pathfind_walk", action_pathfind_walk)
+
+local function action_pathfind_run(entity, target_pos, anim, timeout)
+	entity.traversal:run_along_path(target_pos)
+	entity.animation:play(anim or "run")
+	local duration = timeout or vector.distance(entity.object:get_pos(), target_pos) * 1.5
+	local function pathfind_run(self)
+		duration = duration - self.dtime
+		if duration <= 0 then return true end
+		if self:has_reached_pos(target_pos) then return true end
+	end
+
+	return pathfind_run
+end
+
+creatura.register_action("creatura:pathfind_run", action_pathfind_run)

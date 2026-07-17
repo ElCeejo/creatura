@@ -67,9 +67,20 @@ function mob_class:drop_loot(loot_table)
 	end
 end
 
-function mob_class:hurt(damage)
+function mob_class:hurt(damage_groups)
 	if self.protected then return end
 	if not self.health or self.health <= 0 then return end
+
+	local damage = 0
+	if type(damage_groups) == "number" then damage_groups = {fleshy = damage_groups} end
+
+	for group, percentage in pairs(damage_groups) do
+		local resistance = self.armor_groups[group] or 0
+		local multiplier = resistance / 100.0
+
+		damage = damage + (1.0 * percentage * multiplier)
+	end
+
 	self.health = math.max(0, self.health - damage)
 	return self.health
 end
@@ -81,7 +92,7 @@ function mob_class:heal(healing)
 end
 
 function mob_class:punch_target(target, damage)
-	local damage_groups = self.damage_groups or {fleshy = self.damage or 2}
+	local damage_groups = self.damage_groups or {fleshy = self.damage or 2.0}
 	if damage then
 		local damage_type = type(damage)
 		if damage_type == "number" then
@@ -101,7 +112,7 @@ end
 
 function mob_class:apply_knockback(dir, power)
 	if not dir then dir = vector.new(0, 1, 0) end
-	power = power or 6
+	power = power or 6.0
 	local knockback = vector.multiply(dir, power)
 	self.object:add_velocity(knockback)
 end
@@ -111,24 +122,28 @@ function mob_class:check_environment_damage()
 	if not pos then return end
 	pos.y = pos.y + 0.01
 
-	local node_at_pos = core.get_node(pos)
-
 	-- Fall Damage
 	if self.max_fall > 0 then
 		if not self.touching_ground then
-			self.fall_start = self.fall_start or pos.y
-		elseif self.fall_start then
-			local fall_height = self.fall_start - pos.y
-			self.fall_start = nil
+			self._fall_start = self._fall_start or pos.y
+		elseif self._fall_start then
+			local fall_height = self._fall_start - pos.y
+			self._fall_start = nil
 
 			if fall_height >= self.max_fall then
-				self:hurt(math.floor(fall_height)) -- TODO: Armor groups
+				self:hurt({
+					fall = fall_height
+				})
 				self:indicate_damage()
 			end
 		end
 	end
 
-	-- Fire Damage
+	local node_at_pos = core.get_node_or_nil(pos)
+	if not node_at_pos then return end
+	local in_liquid = core.get_item_group(node_at_pos.name, "liquid")
+	self.in_liquid = (in_liquid and node_at_pos.name) or false
+
 	if self:timer(1) then
 		local def = core.registered_nodes[node_at_pos.name]
 
@@ -136,28 +151,21 @@ function mob_class:check_environment_damage()
 			self:hurt(def.damage_per_second)
 			self:indicate_damage()
 		end
-	end
 
-	-- Breath
-	if core.get_item_group(node_at_pos.name, "liquid") > 0 then
-		self.in_liquid = node_at_pos.name
-
-		if self.max_breath > 0
-		and self:timer(1) then
+		if in_liquid
+		and self.max_breath > 0 then
 			local pos_at_head = vector.offset(pos, 0, self.height or 1, 0)
 			local node_at_head = core.get_node(pos_at_head)
 			if core.get_item_group(node_at_head.name, "liquid") > 0 then
-				if self.breath <= 0 then
-					self:hurt(1)
+				if self._breath <= 0 then
+					self:hurt(1.0)
 					self:indicate_damage()
 				else
-					self.breath = (self.breath or self.max_breath) - 1
+					self._breath = (self._breath or self.max_breath) - 1
 				end
 			else
-				self.breath = self.max_breath
+				self._breath = self.max_breath
 			end
 		end
-	else
-		self.in_liquid = false
 	end
 end
