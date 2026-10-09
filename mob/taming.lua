@@ -1,16 +1,16 @@
-local mob_class = creatura.mob_class
+local mob_base = creatura.mob_base
 
-function mob_class:disable_despawning()
+function mob_base:disable_despawning()
 	self.despawn_after = self:memorize("despawn_after", false)
 	self._despawn = self:memorize("_despawn", false)
 end
 
-function mob_class:set_protection()
+function mob_base:set_protection()
 	self._protected = true
 	self:disable_despawning()
 end
 
-function mob_class:set_owner(player)
+function mob_base:set_owner(player)
 	if type(player) == "userdata" then player = player:get_player_name() end
 
 	self._owner = player
@@ -18,11 +18,11 @@ function mob_class:set_owner(player)
 	if self.on_tamed then self:on_tamed(core.get_player_by_name(player)) end
 end
 
-function mob_class:get_owner()
+function mob_base:get_owner()
 	return self._owner and self._owner ~= "" and core.get_player_by_name(self._owner)
 end
 
-function mob_class:is_owner(target)
+function mob_base:is_owner(target)
 	if not self._owner then return end
 	if not target then return end
 
@@ -43,11 +43,11 @@ function mob_class:is_owner(target)
 	return target == self._owner
 end
 
-function mob_class:is_tamed()
+function mob_base:is_tamed()
 	return self._owner and self._owner ~= ""
 end
 
-function mob_class:is_tempted_by(stack)
+function mob_base:is_tempted_by(stack)
 	if not stack then return false end
 	local stack_name = stack
 	if type(stack) == "userdata" then stack_name = stack:get_name() end
@@ -65,11 +65,11 @@ function mob_class:is_tempted_by(stack)
 	return false
 end
 
-function mob_class:get_feed_count()
+function mob_base:get_feed_count()
 	return self._feed_count or 0
 end
 
-function mob_class:get_nearby_dropped_food()
+function mob_base:get_nearby_dropped_food()
 	local pos = self.object:get_pos()
 	if not pos then return end
 
@@ -88,7 +88,7 @@ function mob_class:get_nearby_dropped_food()
 	end
 end
 
-function mob_class:eat_dropped_item(object)
+function mob_base:eat_dropped_item(object)
 	local entity = object and object:get_luaentity()
 	if not entity or not entity.name or entity.name ~= "__builtin:item" then return end
 	local stack = entity.itemstring and ItemStack(entity.itemstring)
@@ -106,4 +106,62 @@ function mob_class:eat_dropped_item(object)
 	if self._feed_count >= self.max_feed_count then
 		self._feed_count = 0
 	end
+end
+
+function mob_base:get_player_holding_food()
+	local pos = self.object:get_pos()
+	if not pos then return end
+
+	for _, player in ipairs(core.get_connected_players()) do
+		local player_pos = player and player:get_pos()
+
+		if player_pos
+		and vector.distance(pos, player_pos) < self.tracking_range
+		and self:is_tempted_by(player:get_wielded_item()) then
+			return player
+		end
+	end
+end
+
+function mob_base:set_child()
+	self:set_scale(0.5)
+	self._is_child = true
+	self._time_until_grown = 300
+	if self.child_textures then
+		self:set_texture_table(self.child_textures)
+	end
+end
+
+function mob_base:is_child()
+	return self._is_child, self._time_until_grown
+end
+
+function mob_base:growth_step()
+	local time_until_grown = self._time_until_grown or 0
+	time_until_grown = time_until_grown - self.dtime
+
+	if time_until_grown <= 0
+	and self._is_child then
+		self:set_scale(1)
+		self._is_child = false
+		time_until_grown = 0
+
+		if self.on_grown then
+			self:on_grown()
+		else
+			local textures = self:get_definition().textures
+			self:set_texture_table(textures)
+		end
+	end
+
+	self._time_until_grown = time_until_grown
+end
+
+function mob_base:can_breed()
+	return not self:is_child() and (not self.breeding_cooldown or self.breeding_cooldown == 0)
+end
+
+function mob_base:spawn_child()
+	local obj = core.add_entity(self.object:get_pos(), self.name)
+	obj:get_luaentity():set_child()
 end

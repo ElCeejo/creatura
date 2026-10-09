@@ -2,8 +2,8 @@
 -- Mob Meta --
 --------------
 
-local animation_controller = dofile(creatura.path_subclass .. "/animation.lua") -- Animation Control
-local targets = dofile(creatura.path_subclass .. "/targets.lua") -- Target Selection
+local animation_controller = creatura.load_file("COMPONENTS", "animation")
+local targets = creatura.load_file("COMPONENTS", "targets")
 
 -- Math --
 

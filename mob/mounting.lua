@@ -1,4 +1,4 @@
-local mob_class = creatura.mob_class
+local mob_base = creatura.mob_base
 
 creatura.attached_players = {}
 
@@ -23,7 +23,7 @@ local function dismount(player)
 	player:set_properties({visual_size = {x = 1, y = 1}})
 end
 
-function mob_class:mount_player(player)
+function mob_base:mount_player(player)
 	dismount(player) -- Calling dismount ensures we start with a clean slate
 
 	local mount_settings = self.mount_settings or default_mount_settings
@@ -50,7 +50,7 @@ function mob_class:mount_player(player)
 	if self.on_mounted then self:on_mounted(player) end
 end
 
-function mob_class:dismount_player(_player)
+function mob_base:dismount_player(_player)
 	local player = _player or self._rider
 	if not player then return end
 
@@ -60,29 +60,29 @@ function mob_class:dismount_player(_player)
 	if self.on_dismounted then self:on_dismounted(player) end
 end
 
-function mob_class:has_rider()
+function mob_base:has_rider()
 	return self._rider and self._rider:is_valid()
 end
 
-function mob_class:get_rider()
+function mob_base:get_rider()
 	return self._rider ~= nil and self._rider
 end
 
-function mob_class:get_rider_control()
+function mob_base:get_rider_control()
 	local player = self:get_rider()
 	if not player then return {} end
 
 	return player:get_player_control()
 end
 
-function mob_class:get_rider_control_bits()
+function mob_base:get_rider_control_bits()
 	local player = self:get_rider()
 	if not player then return {} end
 
 	return player:get_player_control_bits()
 end
 
-function mob_class:get_rider_yaw()
+function mob_base:get_rider_yaw()
 	local player = self:get_rider()
 	if not player then return math.random(math.pi) end
 

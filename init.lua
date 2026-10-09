@@ -3,12 +3,14 @@
 --------------
 
 creatura = {
-	version = "1.0"
+	version = "1.0",
 }
 
-creatura.path_api = minetest.get_modpath("creatura") .. "/api"
-creatura.path_mob_class = minetest.get_modpath("creatura") .. "/mob_class"
-creatura.path_subclass = minetest.get_modpath("creatura") .. "/subclasses"
+creatura.paths = {
+	CORE = minetest.get_modpath("creatura") .. "/core",
+	COMPONENTS = minetest.get_modpath("creatura") .. "/components",
+	MOB = minetest.get_modpath("creatura") .. "/mob"
+}
 
 creatura.sounds = {
 	hit = "creatura_hit"
@@ -22,13 +24,26 @@ creatura.settings = {
 -- Load API --
 --------------
 
-dofile(creatura.path_api .. "/helper_functions.lua")
-dofile(creatura.path_api .. "/register.lua")
-dofile(creatura.path_api .. "/builtin.lua")
-dofile(creatura.path_api .. "/pathfinder.lua")
-dofile(creatura.path_api .. "/spawning.lua")
-dofile(creatura.path_mob_class .. "/mob_class.lua")
-dofile(creatura.path_subclass .. "/boid_handler.lua")
+function creatura.load_file(folder, name)
+	return dofile(creatura.paths[folder] .. "/" .. name .. ".lua")
+end
+
+creatura.components = {
+	PHYSICS = creatura.load_file("COMPONENTS", "physics"),
+	TRAVERSAL = creatura.load_file("COMPONENTS", "traversal"),
+	ANIMATION = creatura.load_file("COMPONENTS", "animation"),
+	TARGETS = creatura.load_file("COMPONENTS", "targets"),
+	UTILITY_STACK = creatura.load_file("COMPONENTS", "utility_stack"),
+	BOIDS = creatura.load_file("COMPONENTS", "boids")
+}
+
+creatura.load_file("CORE", "helper_functions")
+creatura.load_file("CORE", "register")
+creatura.load_file("CORE", "builtin")
+creatura.load_file("CORE", "pathfinder")
+creatura.load_file("CORE", "spawning")
+
+creatura.load_file("MOB", "base")
 
 -- Legacy support for older Creatura versions
 if creatura.settings.support_legacy then

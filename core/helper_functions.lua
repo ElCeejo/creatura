@@ -396,6 +396,21 @@ function creatura.get_ground_level(pos, range)
 	return above
 end
 
+function creatura.is_alive(mob)
+	if not creatura.is_valid(mob) then
+		return false
+	end
+	if type(mob) == "table" then
+		return (mob.hp or mob.health or 0) > 0
+	end
+	if mob:is_player() then
+		return mob:get_hp() > 0
+	else
+		local ent = mob:get_luaentity()
+		return ent and (ent.hp or ent.health or 0) > 0
+	end
+end
+
 -- Quick Particles
 
 local particle_spawners = {

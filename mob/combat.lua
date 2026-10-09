@@ -1,7 +1,7 @@
-local mob_class = creatura.mob_class
+local mob_base = creatura.mob_base
 local random = math.random
 
-function mob_class:get_drops()
+function mob_base:get_drops()
 	local loot = self.loot_table
 	if not loot or not loot.items then return {} end
 
@@ -41,7 +41,7 @@ function mob_class:get_drops()
 	return drops
 end
 
-function mob_class:drop_item(itemstack)
+function mob_base:drop_item(itemstack)
 	local pos = self.object:get_pos()
 	if not pos then return end
 	local item = minetest.add_item(pos, itemstack)
@@ -58,7 +58,7 @@ function mob_class:drop_item(itemstack)
 	return false
 end
 
-function mob_class:drop_loot(loot_table)
+function mob_base:drop_loot(loot_table)
 	local drops = loot_table or self:get_drops()
 	if not drops or type(drops) ~= "table" or #drops < 1 then return end
 
@@ -67,8 +67,8 @@ function mob_class:drop_loot(loot_table)
 	end
 end
 
-function mob_class:hurt(damage_groups)
-	if self.protected then return end
+function mob_base:hurt(damage_groups)
+	if self._protected then return end
 	if not self.health or self.health <= 0 then return end
 
 	local damage = 0
@@ -85,13 +85,13 @@ function mob_class:hurt(damage_groups)
 	return self.health
 end
 
-function mob_class:heal(healing)
+function mob_base:heal(healing)
 	if not self.health or self.health <= 0 then return end
 	self.health = math.max(0, self.health + healing)
 	return self.health
 end
 
-function mob_class:punch_target(target, damage)
+function mob_base:punch_target(target, damage)
 	local damage_groups = self.damage_groups or {fleshy = self.damage or 2.0}
 	if damage then
 		local damage_type = type(damage)
@@ -110,14 +110,14 @@ function mob_class:punch_target(target, damage)
 	self.punch_cooldown_timer = self.punch_cooldown or 12
 end
 
-function mob_class:apply_knockback(dir, power)
+function mob_base:apply_knockback(dir, power)
 	if not dir then dir = vector.new(0, 1, 0) end
 	power = power or 6.0
 	local knockback = vector.multiply(dir, power)
 	self.object:add_velocity(knockback)
 end
 
-function mob_class:check_environment_damage()
+function mob_base:check_environment_damage()
 	local pos = self.object:get_pos()
 	if not pos then return end
 	pos.y = pos.y + 0.01

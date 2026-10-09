@@ -2,6 +2,103 @@
 -- Registration functions --
 ----------------------------
 
+-- Register New Mob
+
+function creatura.register_mob(name, def)
+	-- Register old Creatura mob
+	if def.utility_stack then
+		creatura.register_mob_antiquus(name, def)
+		return
+	end
+
+	if getmetatable(def) then
+		-- TODO: Error message
+		return
+	end
+
+	-- Default mesh to first mesh in def.meshes to avoid breaking things
+	def.mesh = def.mesh or (def.meshes and def.meshes[1])
+
+	-- Quick equal-sided hitbox definition
+	local box_width = def.hitbox and def.hitbox.width or 0.5
+	local box_height = def.hitbox and def.hitbox.height or 1
+	local hitbox = {-box_width, 0, -box_width, box_width, box_height, box_width}
+	def.collisionbox = hitbox
+
+	-- Overwrite on_rightclick if needed
+	local old_rightclick
+	if def.on_rightclick then
+		old_rightclick = def.on_rightclick
+		def.on_interact = old_rightclick
+		def.on_rightclick = nil
+	end
+
+	-- Overwrite on_punch if needed
+	local old_punch
+	if def.on_punch then
+		old_punch = def.on_punch
+		def.on_hit = old_punch
+		def.on_punch = nil
+	end
+
+	if def.on_deactivate then
+		def.deactivate_func = def.on_deactivate
+		def.on_deactivate = nil
+	end
+
+	-- Mortality.
+	def.on_death = def.on_death or function(self)
+		self._death_timer = (self._death_timer or 2) - self.dtime
+
+		if not self.animation:attempt_to_play("die") then
+			local rot = self.object:get_rotation()
+			local goal = math.pi * 0.5
+			local step = self.dtime
+			if step > 0.5 then step = 0.5 end
+
+			if rot.z < goal then
+				rot.z = rot.z + math.pi * step
+				self.object:set_rotation(rot)
+			end
+		end
+
+		if self._death_timer <= 0 then
+			local pos = self.stand_pos
+			creatura.particle_spawner("float", {
+				minpos = {x = pos.x - 0.1, y = pos.y, z = pos.z - 0.1},
+				maxpos = {x = pos.x + 0.1, y = pos.y + 0.1, z = pos.z + 0.1},
+				texture = "creatura_smoke_particle.png",
+				animation = {
+					type = 'vertical_frames',
+					aspect_w = 4,
+					aspect_h = 4,
+					length = 1,
+				},
+				glow = 1
+			})
+			self:drop_loot()
+			return true
+		end
+	end
+
+	if def.initialize_utility_stack then
+		local init_util_stack = def.initialize_utility_stack
+
+		def.initialize_utility_stack = function(self)
+			self.utility_stack = creatura.components.UTILITY_STACK:new(self.object)
+
+			init_util_stack(self, self.utility_stack)
+
+			self.utility_stack:update()
+		end
+	end
+
+	def._creatura_mob = true
+	def.is_creatura_mob = true -- In-line with new conventions, denotes post-Nova mob
+
+	core.register_entity(name, setmetatable(def, creatura.mob_base))
+end
+
 -- Register new behavior
 
 creatura.registered_behaviors = {}

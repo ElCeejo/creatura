@@ -1,4 +1,4 @@
-local mob_class = creatura.mob_class
+local mob_base = creatura.mob_base
 
 -- Helpers
 
@@ -52,7 +52,7 @@ local default_callbacks = {
 	end,
 }
 
-function mob_class:create_detached_inventory(callbacks, player_name)
+function mob_base:create_detached_inventory(callbacks)
 	local inventory_name = table.concat({
 		self.name,
 		"inventory",
@@ -77,7 +77,7 @@ function mob_class:create_detached_inventory(callbacks, player_name)
 
 
 	local inv_data = self._detached_inventory
-	local inventory = core.create_detached_inventory(inventory_name, new_callbacks, player_name)
+	local inventory = core.create_detached_inventory(inventory_name, new_callbacks)
 	inv_data._ref = inventory
 	inv_data._name = inventory_name
 
@@ -95,7 +95,7 @@ function mob_class:create_detached_inventory(callbacks, player_name)
 end
 
 -- Get InvRef or  list
-function mob_class:get_detached_inventory(list)
+function mob_base:get_detached_inventory(list)
 	local inv_data = self._detached_inventory
 	if not inv_data._ref then return end
 	local inventory = inv_data._ref
@@ -107,7 +107,7 @@ function mob_class:get_detached_inventory(list)
 end
 
 -- Add a new list to detached inventory
-function mob_class:add_list_to_detached_inventory(list_name, list_size)
+function mob_base:add_list_to_detached_inventory(list_name, list_size)
 	local inventory = self:get_detached_inventory()
 	if not inventory then return end
 
@@ -122,7 +122,7 @@ function mob_class:add_list_to_detached_inventory(list_name, list_size)
 	end
 end
 
-function mob_class:serialize_inventory()
+function mob_base:serialize_inventory()
 	local inv_data = self._detached_inventory
 	if not inv_data._ref then return end
 
@@ -135,7 +135,7 @@ function mob_class:serialize_inventory()
 	end
 end
 
-function mob_class:drop_inventory(listname)
+function mob_base:drop_inventory(listname)
 	local pos = self.object:get_pos()
 	if not pos then return end
 
