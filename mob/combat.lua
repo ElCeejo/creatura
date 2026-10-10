@@ -91,12 +91,13 @@ function mob_base:heal(healing)
 	return self.health
 end
 
-function mob_base:punch_target(target, damage)
-	local damage_groups = self.damage_groups or {fleshy = self.damage or 2.0}
+function mob_base:punch_target(target, damage) -- This may need rewritten...
+	local damage_groups = self.damage_groups or {fleshy = self.damage or 2}
+
 	if damage then
 		local damage_type = type(damage)
 		if damage_type == "number" then
-			damage_groups = {fleshy = self.damage or 2}
+			damage_groups = {fleshy = damage}
 		elseif damage_type == "table" then
 			damage_groups = damage
 		end

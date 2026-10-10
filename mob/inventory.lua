@@ -116,7 +116,7 @@ function mob_base:add_list_to_detached_inventory(list_name, list_size)
 
 	local old_list = self._detached_inventory._lists[list_name]
 	if old_list then -- Apply any existing data
-		deserialize_list(list_name, inventory)
+		deserialize_list(old_list, list_name, inventory)
 	else
 		self._detached_inventory._lists[list_name] = ""
 	end
@@ -156,11 +156,11 @@ function mob_base:drop_inventory(listname)
 		local lists = inv:get_lists()
 		if not lists then return end
 
-		for _, list in pairs(lists) do
+		for name, list in pairs(lists) do
 			for i = 1, #list do
 				if list[i] then
-					self:drop_item(inv:get_stack(listname, i))
-					inv:set_stack(listname, i, nil)
+					self:drop_item(inv:get_stack(name, i))
+					inv:set_stack(name, i, nil)
 				end
 			end
 		end

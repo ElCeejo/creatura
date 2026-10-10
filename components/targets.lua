@@ -45,6 +45,8 @@ function targets:cache_nearby_objects()
 		return
 	end
 
+	self.time_of_last_cache = current_time
+
 	local parent_entity = self.entity
 	local objects = core.get_objects_inside_radius(pos, parent_entity.tracking_range or 1) or {}
 	if #objects < 1 then
@@ -121,11 +123,8 @@ function targets:get_nearest_mob(mob_names, predicate)
 
 		if pos2
 		and is_name_valid(mob_names, name)
-		and (not predicate
-		or (self.current_predicate ~= predicate
-		and predicate(self.entity, candidate)))
-		and (not current_dist
-		or vector.distance(pos, pos2) < current_dist) then
+		and (not predicate or predicate(self.entity, candidate))
+		and (not current_dist or vector.distance(pos, pos2) < current_dist) then
 			target = candidate
 			current_dist = vector.distance(pos, pos2)
 		end

@@ -2,8 +2,8 @@
 -- Mob Meta --
 --------------
 
-local animation_controller = creatura.load_file("COMPONENTS", "animation")
-local targets = creatura.load_file("COMPONENTS", "targets")
+local animation_controller = creatura.components.ANIMATION
+local targets = creatura.components.TARGETS
 
 -- Math --
 

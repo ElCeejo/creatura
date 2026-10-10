@@ -102,7 +102,7 @@ function mob_base:eat_dropped_item(object)
 	end
 
 	self._feed_count = (self._feed_count or 0) + 1
-	self:on_fed(nil, nil, self._feed_count)
+	if self.on_fed then self:on_fed(nil, nil, self._feed_count) end
 	if self._feed_count >= self.max_feed_count then
 		self._feed_count = 0
 	end

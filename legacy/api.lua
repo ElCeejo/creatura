@@ -33,18 +33,6 @@ function creatura.register_utility(name, func)
 	creatura.registered_utilities[name] = func
 end
 
-function creatura.is_valid(mob)
-	if not mob then return false end
-	if type(mob) == "table" then mob = mob.object end
-	if type(mob) == "userdata" then
-		if mob:is_player() then
-			if mob:get_look_horizontal() then return mob end
-		else
-			if mob:get_yaw() then return mob end
-		end
-	end
-	return false
-end
 
 -- Environment check translation
 

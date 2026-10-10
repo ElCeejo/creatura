@@ -7,9 +7,9 @@ creatura = {
 }
 
 creatura.paths = {
-	CORE = minetest.get_modpath("creatura") .. "/core",
-	COMPONENTS = minetest.get_modpath("creatura") .. "/components",
-	MOB = minetest.get_modpath("creatura") .. "/mob"
+	CORE = core.get_modpath("creatura") .. "/core",
+	COMPONENTS = core.get_modpath("creatura") .. "/components",
+	MOB = core.get_modpath("creatura") .. "/mob"
 }
 
 creatura.sounds = {
@@ -17,7 +17,8 @@ creatura.sounds = {
 }
 
 creatura.settings = {
-    support_legacy = minetest.settings:get_bool("creatura_support_legacy", true)
+    support_legacy = core.settings:get_bool("creatura_support_legacy", true),
+	debug_mode = core.settings:get_bool("creatura_debug_mode", false)
 }
 
 --------------
@@ -37,7 +38,7 @@ creatura.components = {
 	BOIDS = creatura.load_file("COMPONENTS", "boids")
 }
 
-creatura.load_file("CORE", "helper_functions")
+creatura.load_file("CORE", "utilities")
 creatura.load_file("CORE", "register")
 creatura.load_file("CORE", "builtin")
 creatura.load_file("CORE", "pathfinder")
@@ -47,11 +48,11 @@ creatura.load_file("MOB", "base")
 
 -- Legacy support for older Creatura versions
 if creatura.settings.support_legacy then
-	local path_legacy = minetest.get_modpath("creatura") .. "/legacy"
+	local path_legacy = core.get_modpath("creatura") .. "/legacy"
 	dofile(path_legacy .. "/mob_meta.lua")
 	dofile(path_legacy .. "/api.lua")
 	dofile(path_legacy .. "/boids.lua")
 	dofile(path_legacy .. "/methods.lua")
 end
 
-minetest.log("info", "[API] Creatura " .. creatura.version .. " Loaded")
+core.log("info", "[API] Creatura " .. creatura.version .. " Loaded")

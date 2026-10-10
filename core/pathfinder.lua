@@ -92,7 +92,7 @@ local function is_empty_3d(pos, box, in_liquid)
 		if in_liquid then
 			return creatura.is_liquid(pos)
 		else
-			return (not creatura.is_liquid) and (not creatura.is_walkable(pos))
+			return (not creatura.is_liquid(pos)) and (not creatura.is_walkable(pos))
 		end
 	end
 
@@ -107,7 +107,7 @@ local function is_empty_3d(pos, box, in_liquid)
 				end
 
 				-- Swimming mobs avoid leaving water
-				local is_liquid = not creatura.is_liquid(check_pos)
+				local is_liquid = creatura.is_liquid(check_pos)
 				if in_liquid
 				and not is_liquid then
 					return false
@@ -252,13 +252,14 @@ local function get_ground_expansion(self, pos)
 end
 
 local function get_aerial_expansion(self, pos)
+	local box = self:get_parent_attribute("collisionbox")
 	local expansion_result = {}
 	local expand_pos = vector.round(pos)
 	expand_pos.y = pos.y - 0.49 -- Set y level to the floor for accurate clearance checks
 	for i = 1, 10 do
 		expand_pos = vector.add(pos, neighbors_3d[i])
 
-		if is_empty_3d(self, expand_pos) then
+		if is_empty_3d(expand_pos, box) then
 			table.insert(expansion_result, vector.round(expand_pos))
 		end
 	end
@@ -267,13 +268,14 @@ local function get_aerial_expansion(self, pos)
 end
 
 local function get_aquatic_expansion(self, pos)
+	local box = self:get_parent_attribute("collisionbox")
 	local expansion_result = {}
 	local expand_pos = vector.round(pos)
 	expand_pos.y = pos.y - 0.49 -- Set y level to the floor for accurate clearance checks
 	for i = 1, 10 do
 		expand_pos = vector.add(pos, neighbors_3d[i])
 
-		if is_empty_3d(self, expand_pos, true) then
+		if is_empty_3d(expand_pos, box, true) then
 			table.insert(expansion_result, vector.round(expand_pos))
 		end
 	end

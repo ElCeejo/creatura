@@ -92,9 +92,10 @@ function animation:play(name, ...)
 	self.is_playing = true
 	self.is_looping = animation_def.loop
 
-	self.on_step = animation_def.on_step
+	--self.on_step = animation_def.on_step
 	self.args = { ... }
 	self.end_action = {}
+	self.frame_actions = {}
 
 	parent:set_animation(animation_def.range, animation_def.speed, animation_def.frame_blend, animation_def.loop)
 end
@@ -126,6 +127,7 @@ function animation:end_animation()
 	self.is_playing = false
 	self.is_looping = false
 	self.end_action = {}
+	self.frame_actions = {}
 end
 
 function animation:on_frame(frame, func, ...)

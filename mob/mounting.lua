@@ -84,7 +84,7 @@ end
 
 function mob_base:get_rider_yaw()
 	local player = self:get_rider()
-	if not player then return math.random(math.pi) end
+	if not player then return math.random() * 2 * math.pi end
 
 	return player:get_look_horizontal()
 end

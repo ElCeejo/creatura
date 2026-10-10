@@ -24,22 +24,6 @@ local function format_name(str)
 	end
 end
 
-local function table_contains(tbl, val)
-	for _, v in pairs(tbl) do
-		if v == val then
-			return true
-		end
-	end
-	return false
-end
-
-local function pos_meets_params(pos, def)
-	if not minetest.find_nodes_in_area(pos, pos, def.nodes) then return false end
-	if not minetest.find_node_near(pos, 1, def.neighbors) then return false end
-
-	return true
-end
-
 local function can_spawn(pos, width, height)
 	local pos2
 	local w_iter = width / ceil(width)
@@ -72,7 +56,7 @@ end
 -- Spawn Item --
 ----------------
 
-local creative = minetest.settings:get_bool("creative_mode")
+local creative = core.settings:get_bool("creative_mode")
 
 function creatura.register_spawn_item(name, def)
 	local inventory_image
@@ -93,8 +77,8 @@ function creatura.register_spawn_item(name, def)
 		-- If the player right-clicks something like a chest or item frame then
 		-- run the node's on_rightclick callback
 		local under = pointed_thing.under
-		local node = minetest.get_node(under)
-		local node_def = minetest.registered_nodes[node.name]
+		local node = core.get_node(under)
+		local node_def = core.registered_nodes[node.name]
 		if node_def and node_def.on_rightclick and
 				not (player and player:is_player() and
 				player:get_player_control().sneak) then
@@ -103,13 +87,13 @@ function creatura.register_spawn_item(name, def)
 		end
 
 		-- Otherwise spawn the mob
-		local pos = minetest.get_pointed_thing_position(pointed_thing, true)
-		if minetest.is_protected(pos, player and player:get_player_name() or "") then return end
-		local mobdef = minetest.registered_entities[name]
+		local pos = core.get_pointed_thing_position(pointed_thing, true)
+		if core.is_protected(pos, player and player:get_player_name() or "") then return end
+		local mobdef = core.registered_entities[name]
 		local spawn_offset = abs(mobdef.collisionbox[2])
 		pos.y = (pos.y - 0.49) + spawn_offset
 		if def.antispam then
-			local objs = minetest.get_objects_in_area(vec_sub(pos, 0.51), vec_add(pos, 0.51))
+			local objs = core.get_objects_in_area(vec_sub(pos, 0.51), vec_add(pos, 0.51))
 			for _, obj in ipairs(objs) do
 				if obj
 				and obj:get_luaentity()
@@ -118,7 +102,7 @@ function creatura.register_spawn_item(name, def)
 				end
 			end
 		end
-		local object = minetest.add_entity(pos, name)
+		local object = core.add_entity(pos, name)
 		if object then
 			object:set_yaw(random(0, pi * 2))
 			object:get_luaentity().last_yaw = object:get_yaw()
@@ -126,13 +110,13 @@ function creatura.register_spawn_item(name, def)
 				def.on_spawn(object:get_luaentity(), player)
 			end
 		end
-		if not minetest.is_creative_enabled(player:get_player_name())
+		if not core.is_creative_enabled(player:get_player_name())
 		or def.consume_in_creative then
 			itemstack:take_item()
 			return itemstack
 		end
 	end
-	minetest.register_craftitem(def.itemstring or (mod_name .. ":spawn_" .. mob_name), def)
+	core.register_craftitem(def.itemstring or (mod_name .. ":spawn_" .. mob_name), def)
 end
 
 function creatura.register_on_spawn(name, func)
@@ -162,21 +146,14 @@ end
 	spawn_cap = 5
 })]]
 
-local protected_spawn = minetest.settings:get_bool("creatura_protected_spawn", true)
-local abr = (tonumber(minetest.get_mapgen_setting("active_block_range")) or 4) * 16
-local max_per_block = tonumber(minetest.settings:get("creatura_mapblock_limit")) or 12
-local max_in_abr = tonumber(minetest.settings:get("creatura_abr_limit")) or 12
-local min_abm_dist = min(abr / 2, tonumber(minetest.settings:get("creatura_min_abm_dist")) or 32)
-
-local mobs_spawn = minetest.settings:get_bool("mobs_spawn") ~= false
-
-local mapgen_mobs = {}
-
-local do_spawn = true
+local mobs_spawn = core.settings:get_bool("creatura_enable_spawning", true)
+local protected_spawn = core.settings:get_bool("creatura_protected_spawn", true)
+local abr = (tonumber(core.settings:get("active_block_range")) or 4) * 16
+local max_per_block = tonumber(core.settings:get("creatura_mapblock_limit")) or 12
+local max_in_abr = tonumber(core.settings:get("creatura_abr_limit")) or 12
+local min_abm_dist = min(abr / 2, tonumber(core.settings:get("creatura_min_abm_dist")) or 32)
 
 function creatura.register_abm_spawn(mob, def)
-	if not do_spawn then return end
-
 	local chance = def.chance or 3000
 	local interval = def.interval or 30
 	local min_height = def.min_height or 0
@@ -191,7 +168,7 @@ function creatura.register_abm_spawn(mob, def)
 	local biomes = def.biomes or {}
 	local nodes = def.nodes or {"group:soil", "group:stone"}
 	local neighbors = def.neighbors or {"air"}
-	local spawn_on_load = def.spawn_on_load or false
+	--local spawn_on_load = def.spawn_on_load or false
 	local spawn_in_nodes = def.spawn_in_nodes or false
 	local spawn_cap = def.spawn_cap or 5
 
@@ -207,11 +184,11 @@ function creatura.register_abm_spawn(mob, def)
 
 		if (not protected_spawn
 		or block_protected)
-		and minetest.is_protected(pos, "") then
+		and core.is_protected(pos, "") then
 			return
 		end
 
-		local tod = (minetest.get_timeofday() or 0) * 24000
+		local tod = (core.get_timeofday() or 0) * 24000
 
 		local bounds_in = tod >= min_time and tod <= max_time
 		local bounds_ex = tod >= max_time or tod <= min_time
@@ -221,7 +198,7 @@ function creatura.register_abm_spawn(mob, def)
 			return
 		end
 
-		local light = minetest.get_node_light(pos) or 7
+		local light = core.get_node_light(pos) or 7
 
 		if light > max_light
 		or light < min_light then
@@ -235,8 +212,8 @@ function creatura.register_abm_spawn(mob, def)
 
 		if biomes
 		and #biomes > 0 then
-			local biome_id = minetest.get_biome_data(pos).biome
-			local biome_name = minetest.get_biome_name(biome_id)
+			local biome_id = core.get_biome_data(pos).biome
+			local biome_name = core.get_biome_name(biome_id)
 			local is_spawn_biome = false
 			for _, biome in ipairs(biomes) do
 				if biome:match("^" .. biome_name) then
@@ -250,7 +227,7 @@ function creatura.register_abm_spawn(mob, def)
 		local mob_count = 0
 		local plyr_found = false
 
-		local objects = minetest.get_objects_inside_radius(pos, abr)
+		local objects = core.get_objects_inside_radius(pos, abr)
 
 		for _, object in ipairs(objects) do
 			local ent = object:get_luaentity()
@@ -274,7 +251,7 @@ function creatura.register_abm_spawn(mob, def)
 			return
 		end
 
-		local mob_def = minetest.registered_entities[mob]
+		local mob_def = core.registered_entities[mob]
 		local mob_width = mob_def.collisionbox[4]
 		local mob_height = mob_def.collisionbox[5]
 
@@ -298,20 +275,20 @@ function creatura.register_abm_spawn(mob, def)
 				if not can_spawn(spawn_pos, mob_width, mob_height) then
 					spawn_pos = pos
 				end
-				obj = minetest.add_entity(spawn_pos, mob)
+				obj = core.add_entity(spawn_pos, mob)
 				do_on_spawn(spawn_pos, obj)
 			end
 		else
-			obj = minetest.add_entity(pos, mob)
+			obj = core.add_entity(pos, mob)
 			do_on_spawn(pos, obj)
 		end
 
-		minetest.log("action",
-			"[Creatura] [ABM Spawning] Spawned " .. group_size .. " " .. mob .. " at " .. minetest.pos_to_string(pos))
+		core.log("action",
+			"[Creatura] [ABM Spawning] Spawned " .. group_size .. " " .. mob .. " at " .. core.pos_to_string(pos))
 
 	end
 
-	minetest.register_abm({
+	core.register_abm({
 		label = mob .. " spawning",
 		nodenames = nodes,
 		neighbors = neighbors,
@@ -324,10 +301,6 @@ function creatura.register_abm_spawn(mob, def)
 			spawn_func(pos, aocw)
 		end
 	})
-
-	if spawn_on_load then
-		table.insert(mapgen_mobs, mob)
-	end
 
 	creatura.registered_mob_spawns[mob] = {
 		chance = def.chance or 3000,
@@ -350,179 +323,13 @@ function creatura.register_abm_spawn(mob, def)
 	}
 end
 
-----------------
--- DEPRECATED --
-----------------
-
-
--- Mapgen --
-
-minetest.register_node("creatura:spawn_node", {
+core.register_node("creatura:spawn_node", {
 	drawtype = "airlike",
 	groups = {not_in_creative_inventory = 1},
 	walkable = false
 })
 
-local mapgen_spawning = false
-local mapgen_spawning_int = tonumber(minetest.settings:get("creatura_mapgen_spawn_interval")) or 64
-
-if mapgen_spawning then
-	local chunk_delay = 0
-	local c_air = minetest.get_content_id("air")
-	local c_spawn = minetest.get_content_id("creatura:spawn_node")
-
-	minetest.register_on_generated(function(minp, maxp)
-		if chunk_delay > 0 then chunk_delay = chunk_delay - 1 end
-		local meta_queue = {}
-
-		local vm, emin, emax = minetest.get_mapgen_object("voxelmanip")
-		local area = VoxelArea:new{MinEdge = emin, MaxEdge = emax}
-		local data = vm:get_data()
-
-		local min_x, max_x = minp.x, maxp.x
-		local min_y, max_y = minp.y, maxp.y
-		local min_z, max_z = minp.z, maxp.z
-
-		local def
-		local center
-
-		local current_biome
-		local spawn_biomes
-
-		local current_pos
-
-		for _, mob_name in ipairs(mapgen_mobs) do
-			local mob_spawned = false
-
-			def = creatura.registered_mob_spawns[mob_name]
-
-			center = {
-				x = min_x + (max_x - min_x) * 0.5,
-				y = min_y + (max_y - min_y) * 0.5,
-				z = min_z + (max_z - min_z) * 0.5
-			}
-
-			current_biome = minetest.get_biome_name(minetest.get_biome_data(center).biome)
-			spawn_biomes = def.biomes
-
-			if not mob_spawned
-			and (not spawn_biomes
-			or table_contains(spawn_biomes, current_biome)) then
-				for z = min_z + 8, max_z - 7, 8 do
-					if mob_spawned then break end
-					for x = min_x + 8, max_x - 7, 8 do
-						if mob_spawned then break end
-						for y = min_y, max_y do
-							local vi = area:index(x, y, z)
-
-							if data[vi] == c_air
-							or data[vi] == c_spawn then
-								break
-							end
-
-							-- Check if position is outside of vertical bounds
-							if y > def.max_height
-							or y < def.min_height then
-								break
-							end
-
-							current_pos = vector.new(x, y, z)
-
-							-- Check if position has required nodes
-							if not pos_meets_params(current_pos, def) then
-								break
-							end
-
-							if def.spawn_in_nodes then
-								-- Add Spawn Node to Map
-								data[vi] = c_spawn
-
-								local group_size = random(def.min_group or 1, def.max_group or 1)
-								table.insert(meta_queue, {pos = current_pos, mob = mob_name, cluster = group_size})
-
-								mob_spawned = true
-								break
-							elseif data[area:index(x, y + 1, z)] == c_air then
-								vi = area:index(x, y + 1, z)
-								current_pos = vector.new(x, y + 1, z)
-
-								-- Add Spawn Node to Map
-								data[vi] = c_spawn
-
-								local group_size = random(def.min_group or 1, def.max_group or 1)
-								table.insert(meta_queue, {pos = current_pos, mob = mob_name, cluster = group_size})
-
-								mob_spawned = true
-								break
-							end
-						end
-					end
-				end
-			end
-		end
-
-		if #meta_queue > 0 then
-			vm:set_data(data)
-			vm:write_to_map()
-
-			for _, unset_meta in ipairs(meta_queue) do
-				local pos = unset_meta.pos
-				local mob = unset_meta.mob
-				local cluster = unset_meta.cluster
-
-				local meta = minetest.get_meta(pos)
-				meta:set_string("mob", mob)
-				meta:set_int("cluster", cluster)
-			end
-
-			chunk_delay = mapgen_spawning_int
-		end
-	end)
-
-	local spawn_interval = tonumber(minetest.settings:get("creatura_spawn_interval")) or 10
-
-	minetest.register_abm({
-		label = "Creatura Spawning",
-		nodenames = {"creatura:spawn_node"},
-		interval = spawn_interval,
-		chance = 1,
-		action = function(pos)
-			local plyr_found = false
-			local objects = minetest.get_objects_inside_radius(pos, abr)
-
-			for _, object in ipairs(objects) do
-				if object:is_player() then
-					plyr_found = true
-					break
-				end
-			end
-
-			if not plyr_found then return end
-
-			local meta = minetest.get_meta(pos)
-			local name = meta:get_string("mob") or ""
-			if name == "" then minetest.remove_node(pos) return end
-			local amount = meta:get_int("cluster")
-			local obj
-			if amount > 0 then
-				for _ = 1, amount do
-					obj = minetest.add_entity(pos, name)
-					do_on_spawn(pos, obj)
-				end
-				minetest.log("action",
-					"[Creatura] Spawned " .. amount .. " " .. name .. " at " .. minetest.pos_to_string(pos))
-			else
-				obj = minetest.add_entity(pos, name)
-				do_on_spawn(pos, obj)
-				minetest.log("action",
-					"[Creatura] Spawned a " .. name .. " at " .. minetest.pos_to_string(pos))
-			end
-			minetest.remove_node(pos)
-		end,
-	})
-end
-
-function creatura.register_mob_spawn(name, def)
+function creatura.register_mob_spawn(name, def) -- DEPRECATED
 	local spawn_def = {
 		chance = def.chance or 5,
 		min_height = def.min_height or 0,
@@ -546,7 +353,7 @@ function creatura.register_mob_spawn(name, def)
 	creatura.register_abm_spawn(name, spawn_def)
 end
 
-function creatura.register_spawn_egg(name, col1, col2, inventory_image)
+function creatura.register_spawn_egg(name, col1, col2, inventory_image) -- DEPRECATED
 	if col1 and col2 then
 		local base = "(creatura_spawning_crystal_primary.png^[multiply:#" .. col1 .. ")"
 		local spots = "(creatura_spawning_crystal_secondary.png^[multiply:#" .. col2 .. ")"
@@ -554,16 +361,16 @@ function creatura.register_spawn_egg(name, col1, col2, inventory_image)
 	end
 	local mod_name = name:split(":")[1]
 	local mob_name = name:split(":")[2]
-	minetest.register_craftitem(mod_name .. ":spawn_" .. mob_name, {
+	core.register_craftitem(mod_name .. ":spawn_" .. mob_name, {
 		description = "Spawn " .. format_name(name),
 		inventory_image = inventory_image,
 		stack_max = 99,
 		on_place = function(itemstack, _, pointed_thing)
-			local mobdef = minetest.registered_entities[name]
+			local mobdef = core.registered_entities[name]
 			local spawn_offset = abs(mobdef.collisionbox[2])
-			local pos = minetest.get_pointed_thing_position(pointed_thing, true)
+			local pos = core.get_pointed_thing_position(pointed_thing, true)
 			pos.y = (pos.y - 0.4) + spawn_offset
-			local object = minetest.add_entity(pos, name)
+			local object = core.add_entity(pos, name)
 			if object then
 				object:set_yaw(random(1, 6))
 				object:get_luaentity().last_yaw = object:get_yaw()

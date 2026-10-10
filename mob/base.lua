@@ -55,18 +55,7 @@ local mob_base = {
 	-- Internal properties
 	_is_child = false,
 	_time_until_grown = 0,
-	_action_queue = {
-		_front_pointer = 1,
-		_back_pointer = 1,
-		_actions = {},
-		_args = {}
-	},
-	_detached_inventory = {
-		_name = ",",
-		_ref = {},
-		_lists = {},
-		_list_sizes = {}
-	}
+
 }
 
 mob_base.__index = mob_base
@@ -159,6 +148,10 @@ function mob_base:add_action_to_queue(name, ...)
     self._action_queue._actions[back_pointer] = action
 	self._action_queue._args[back_pointer] = { ... }
     self._action_queue._back_pointer = back_pointer + 1
+
+	if creatura.settings.debug_mode then
+		self:add_diagnostic("Last action added to queue", name)
+	end
 end
 
 function mob_base:has_active_action()
@@ -213,9 +206,10 @@ function mob_base:get_staticdata()
 	data._owner = self._owner
 	data._feed_count = self._feed_count or 0
 
+	local detached_inv = self._detached_inventory or {}
 	data._detached_inventory = {}
-	data._detached_inventory._lists = self._detached_inventory._lists
-	data._detached_inventory._list_sizes = self._detached_inventory._list_sizes
+	data._detached_inventory._lists = detached_inv._lists or {}
+	data._detached_inventory._list_sizes = detached_inv._list_sizes or {}
 
 	data.active_time = self.active_time or 0
 	return core.serialize(data)
@@ -223,7 +217,6 @@ end
 
 -- On Activate
 function mob_base:on_activate(staticdata, dtime)
-
 	-- Load staticdata
 	if staticdata == "" then staticdata = self:get_staticdata() end
 	local data = core.deserialize(staticdata)
@@ -240,6 +233,19 @@ function mob_base:on_activate(staticdata, dtime)
 	end
 
 	self.perm_data = self.perm_data or {}
+
+	self._action_queue = {
+		_front_pointer = 1,
+		_back_pointer = 1,
+		_actions = {},
+		_args = {}
+	}
+
+	local inv_data = self._detached_inventory or {}
+	self._detached_inventory = {
+		_lists = inv_data._lists or {},
+		_list_sizes = inv_data._list_sizes or {}
+	}
 
 	self.is_child = nil
 	if self:is_child() then

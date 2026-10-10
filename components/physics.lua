@@ -9,7 +9,7 @@ physics.__index = physics
 function physics:initiate(entity)
 	local new_controller = {
 		entity = entity,
-		gravity = -9.8,
+		gravity = -9.81,
 		friction = 0.4,
 
 		has_gravity = true,
@@ -90,7 +90,7 @@ function physics:on_step(dtime)
 	local accel = self.entity.object:get_acceleration()
 	local vel = self.entity.object:get_velocity()
 
-	accel.y = -9.81 -- Basic gravity
+	accel.y = self.has_gravity and self.gravity or 0
 
 	local current_pos = self.entity.object:get_pos()
 	local current_node = core.get_node(current_pos)

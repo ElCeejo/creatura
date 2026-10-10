@@ -1,3 +1,20 @@
-#    Enable support for beta versions of Creatura
+# Enable support for beta versions of Creatura
 creatura_support_legacy (Support Legacy Versions) bool true
 
+# Enable debugging features (Particles, Infotext, etc.)
+creatura_debug_mode (Enable Debug Mode) bool false
+
+# Enable spawning for Creatura mobs (NOTE: Mobs that don't use Creatura spawning methods will still be able to spawn)
+creatura_enable_spawning (Enable Mob Spawning) bool true
+
+# Allow spawning in protected areas
+creatura_protected_spawn (Protected Area Spawning) bool true
+
+# Maximum amount of mobs in a single mapblock before spawning is blocked
+creatura_mapblock_limit (Max Mobs per Mapblock) int 12
+
+# Maximum amount of mobs within Active Block Send Range before spawning is blocked
+creatura_abr_limit (Max Mobs within ABR) int 12
+
+# Minimum distance to a Player for ABM Spawning
+creatura_min_abm_dist (Minimum ABM Spawning Distance) int 32

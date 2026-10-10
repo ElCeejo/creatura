@@ -39,7 +39,6 @@ local function can_large_hitbox_fit(self, target_pos)
 			local current_y = min_p.y
 
 			while current_y < max_y do
-				current_y = current_y + 1
 				local check_pos = {x = x, y = current_y, z = z}
 
 				if not is_node_traversable(check_pos) then
@@ -49,6 +48,8 @@ local function can_large_hitbox_fit(self, target_pos)
 						return false
 					end
 				end
+
+				current_y = current_y + 1
 			end
 		end
 	end

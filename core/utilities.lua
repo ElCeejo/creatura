@@ -156,9 +156,9 @@ function creatura.get_wander_pos(pos, range, round)
 	local wander_pos = vector.add(pos, random_offset)
 
 	if creatura.is_walkable(wander_pos) then
-		vec_offset(wander_pos, 0, 1, 0)
+		wander_pos = vec_offset(wander_pos, 0, 1, 0)
 	elseif not creatura.is_on_ground(wander_pos) then
-		vec_offset(wander_pos, 0, -1, 0)
+		wander_pos = vec_offset(wander_pos, 0, -1, 0)
 	end
 
 	if creatura.is_walkable(wander_pos)
@@ -186,7 +186,7 @@ function creatura.get_node_def(node) -- Node can be name or pos
 	local def = minetest.registered_nodes[node] or default_node_def
 	if def.walkable
 	and creatura.get_node_height_from_def(node) < 0.26 then
-		def.walkable = false -- workaround for nodes like snow
+		return setmetatable({walkable = false}, {__index = def}) -- workaround for nodes like snow
 	end
 	return def
 end
@@ -396,6 +396,19 @@ function creatura.get_ground_level(pos, range)
 	return above
 end
 
+function creatura.is_valid(mob)
+	if not mob then return false end
+	if type(mob) == "table" then mob = mob.object end
+	if type(mob) == "userdata" then
+		if mob:is_player() then
+			if mob:get_look_horizontal() then return mob end
+		else
+			if mob:get_yaw() then return mob end
+		end
+	end
+	return false
+end
+
 function creatura.is_alive(mob)
 	if not creatura.is_valid(mob) then
 		return false
@@ -430,8 +443,8 @@ local particle_spawners = {
 		time = 0.25,
 		minacc = {x = 0, y = 2, z = 0},
 		maxacc = {x = 0, y = 3, z = 0},
-		minvel = {x = random(-1, 1), y = -0.25, z = random(-1, 1)},
-		maxvel = {x = random(-2, 2), y = -0.25, z = random(-2, 2)},
+		minvel = {x = -2, y = -0.25, z = -2},
+		maxvel = {x =  2, y = -0.25, z =  2},
 		minsize = 4,
 		maxsize = 4,
 		collisiondetection = true

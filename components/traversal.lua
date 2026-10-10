@@ -77,7 +77,8 @@ end
 -- Switch to flying state
 
 function traversal:set_flying(bool)
-	self.is_flying = (bool ~= nil and bool) or true
+	if bool == nil then bool = true end
+	self.is_flying = bool
 end
 
 -- Get speeds
@@ -394,8 +395,11 @@ function traversal:on_step(dtime)
 			if self.path
 			and self.path[self.path_pointer] then
 				goal = self.path[self.path_pointer]
-				creatura.particle(goal, 0.2)
-				--self.entity:add_diagnostic("path_pointer", self.path_pointer)
+
+				if creatura.settings.debug_mode then
+					creatura.particle(goal, 0.2)
+					--self.entity:add_diagnostic("path_pointer", self.path_pointer)
+				end
 
 				if math.sqrt(((pos.x - goal.x) ^ 2) + ((pos.z - goal.z) ^ 2)) < 1.2 then
 					self.path_pointer = self.path_pointer + 1

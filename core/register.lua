@@ -7,6 +7,8 @@
 function creatura.register_mob(name, def)
 	-- Register old Creatura mob
 	if def.utility_stack then
+		assert(creatura.register_mob_antiquus,
+			"[Creatura] " .. name .. " uses the legacy API. Enable `Support Legacy Versions` in settings.")
 		creatura.register_mob_antiquus(name, def)
 		return
 	end
