@@ -34,6 +34,8 @@ end
 -- Add a new behavior to the stack
 function utility_stack:add_behavior(name, spec)
 	local behavior_spec = creatura.registered_behaviors[name]
+	assert(behavior_spec and behavior_spec.is_on_cooldown,
+		"[Creatura] " .. name .. " is an invalid behavior")
 
 	self.stack[#self.stack + 1] = setmetatable(spec or {}, behavior_spec)
 end

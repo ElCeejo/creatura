@@ -48,21 +48,8 @@ function mob_base:is_tamed()
 end
 
 function mob_base:is_tempted_by(stack)
-	if not stack then return false end
-	local stack_name = stack
-	if type(stack) == "userdata" then stack_name = stack:get_name() end
-	if type(self.tempted_by) == "string" then
-		return stack_name == self.tempted_by -- TODO: Allow groups
-	end
-
-	for _, tempted_by in ipairs(self.tempted_by) do
-		if stack_name == tempted_by
-		or minetest.get_item_group(stack_name, tempted_by:split(":")[2]) > 0 then
-			return true
-		end
-	end
-
-	return false
+	local stack_name = type(stack) == "userdata" and stack:get_name() or stack
+	return stack_name ~= nil and creatura.check_item(stack_name, self.tempted_by)
 end
 
 function mob_base:get_feed_count()
@@ -70,22 +57,21 @@ function mob_base:get_feed_count()
 end
 
 function mob_base:get_nearby_dropped_food()
-	local pos = self.object:get_pos()
-	if not pos then return end
+	return self.senses:find({
+		search_from = "items",
+		names = self.tempted_by,
+		check_claims = false,
+		line_of_sight = false,
+	})
+end
 
-	local objects = core.get_objects_inside_radius(pos, self.tracking_range or 4)
-
-	for _, object in ipairs(objects) do
-		local entity = object and object:get_luaentity()
-
-		if entity
-		and entity.name
-		and entity.name == "__builtin:item"
-		and entity.itemstring
-		and self:is_tempted_by(ItemStack(entity.itemstring)) then
-			return object
-		end
-	end
+function mob_base:get_player_holding_food()
+	return self.senses:find({
+		search_from = "players",
+		held_items = self.tempted_by,
+		check_claims = false,
+		line_of_sight = false,
+	})
 end
 
 function mob_base:eat_dropped_item(object)
@@ -96,7 +82,7 @@ function mob_base:eat_dropped_item(object)
 
 	if stack:get_count() > 1 then
 		stack:take_item()
-		entity.itemstring = stack:to_string()
+		entity:set_item(stack)
 	else
 		object:remove()
 	end
@@ -105,21 +91,6 @@ function mob_base:eat_dropped_item(object)
 	if self.on_fed then self:on_fed(nil, nil, self._feed_count) end
 	if self._feed_count >= self.max_feed_count then
 		self._feed_count = 0
-	end
-end
-
-function mob_base:get_player_holding_food()
-	local pos = self.object:get_pos()
-	if not pos then return end
-
-	for _, player in ipairs(core.get_connected_players()) do
-		local player_pos = player and player:get_pos()
-
-		if player_pos
-		and vector.distance(pos, player_pos) < self.tracking_range
-		and self:is_tempted_by(player:get_wielded_item()) then
-			return player
-		end
 	end
 end
 

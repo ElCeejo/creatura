@@ -341,6 +341,29 @@ function creatura.is_pos_clear(pos, box, check_func)
 	return true
 end
 
+-- Feeding
+
+local function item_fits_pattern(item_name, pattern)
+	if item_name == pattern then return true end
+	local split_pattern = pattern:split(":")
+	local prefix, suffix = split_pattern[1], split_pattern[2]
+	if prefix == "group"
+	and core.get_item_group(item_name, suffix) > 0 then
+		return true
+	end
+	return false
+end
+
+function creatura.check_item(item_name, patterns)
+	if not patterns then return true end
+	if type(patterns) == "string" then return item_fits_pattern(item_name, patterns) end
+	for _, pattern in ipairs(patterns) do
+		if item_fits_pattern(item_name, pattern) then return true end
+	end
+	return false
+end
+
+
 -- DEPRECATED
 
 function creatura.fast_ray_sight(pos1, pos2, water)

@@ -512,7 +512,10 @@ function creatura.find_path(entity, target_pos)
 	end
 
 	--entity:add_diagnostic("finding_path", "true")
-	--current_pathfinder:visualize()
+	if creatura.settings.debug_mode then
+		current_pathfinder:visualize()
+	end
+
 	return current_pathfinder:get_path(target_pos)
 end
 

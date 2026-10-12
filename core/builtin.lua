@@ -389,6 +389,7 @@ creatura.register_action("creatura:simple_pursue", function(entity, target, anim
 		or self:timer(1) then
 			entity.traversal:run_to_pos(target_pos)
 			entity.animation:play(anim or "run")
+			init = true
 		end
 	end
 
@@ -419,6 +420,7 @@ local function action_pathfind_run(entity, target_pos, anim, timeout)
 		duration = duration - self.dtime
 		if duration <= 0 then return true end
 		if self:has_reached_pos(target_pos) then return true end
+		if not self.traversal:is_active() then return true end
 	end
 
 	return pathfind_run

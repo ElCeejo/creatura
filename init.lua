@@ -34,6 +34,7 @@ creatura.components = {
 	TRAVERSAL = creatura.load_file("COMPONENTS", "traversal"),
 	ANIMATION = creatura.load_file("COMPONENTS", "animation"),
 	TARGETS = creatura.load_file("COMPONENTS", "targets"),
+	SENSES = creatura.load_file("COMPONENTS", "senses"),
 	UTILITY_STACK = creatura.load_file("COMPONENTS", "utility_stack"),
 	BOIDS = creatura.load_file("COMPONENTS", "boids")
 }

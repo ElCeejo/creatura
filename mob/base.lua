@@ -65,6 +65,7 @@ local physics = creatura.components.PHYSICS
 local animation = creatura.components.ANIMATION
 local traversal = creatura.components.TRAVERSAL
 local targets = creatura.components.TARGETS
+local senses = creatura.components.SENSES
 
 creatura.load_file("MOB", "spatial")
 creatura.load_file("MOB", "visuals")
@@ -272,6 +273,7 @@ function mob_base:on_activate(staticdata, dtime)
 
 	self.width, self.height = self:get_hitbox_scale()
 
+	senses:initiate(self)
 	targets:initiate(self)
 	animation:initiate(self)
 	physics:initiate(self)
